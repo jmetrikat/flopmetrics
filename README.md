@@ -1,14 +1,14 @@
-### Infrastructures and Metrics for Assessing Energy-Efficient Large Language Model Training
+# Infrastructures and Metrics for Assessing Energy-Efficient Large Language Model Training
 
-A compact toolkit to profile, analyze, and compare energy efficiency during LLM training and evaluation. It includes reusable metrics, simple experimental setups, and integrations for benchmarking.
+This repository accompanies my Bachelor's thesis at the chair of Artificial Intelligence and Sustainability at the Hasso-Plattner-Institute. It contains a compact toolkit to profile, analyze, and compare energy efficiency during LLM training and evaluation.
 
-### Repository layout
+## Repository layout
 
 - **`metriwatt/`**: Core library for profiling, metrics, model/network definitions, and evaluation helpers.
 - **`experiments/metrics/`**: Notebooks, scripts, and results for FLOPs/throughput/hyper-surface analyses.
 - **`experiments/infrastructure/`**: Power/energy profiling utilities and result summaries across GPU types/precisions.
 
-### Quickstart
+## Quickstart
 
 1. Install dependencies (requires Poetry):
 
