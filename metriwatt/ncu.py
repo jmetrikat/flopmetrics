@@ -6,7 +6,7 @@ import io
 import pandas as pd
 from tqdm import tqdm
 
-from lora_bp.profiler import TorchProfiler
+from metriwatt.profiler import TorchProfiler
 
 
 class NCUProfiler:

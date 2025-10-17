@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "lora-ba"
+name = "metriwatt"
 version = "0.1.0"
-description = "LoRA BA"
+description = "Infrastructures and Metrics for Assessing Energy-Efficient Large Language Model Training."
 authors = ["Jannis Metrikat <120120832+jmetrikat@users.noreply.github.com>"]
 readme = "README.md"
 

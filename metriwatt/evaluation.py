@@ -2,26 +2,27 @@
 
 from abc import abstractmethod
 from multiprocessing import Queue
+import json
 import os
-from typing import Callable, Dict, Iterable, List, Tuple, Union
 import warnings
-import torch
-from lm_eval import evaluator
-from lm_eval.tasks import TaskManager
-from lm_eval.models.huggingface import HFLM
+from typing import Callable, Dict, Iterable, List, Tuple, Union
 from dataclasses import dataclass
 from math import sqrt
 from statistics import mean, stdev
 import random
+import torch
+from lm_eval import evaluator
+from lm_eval.tasks import TaskManager
+from lm_eval.models.huggingface import HFLM
 from tqdm import tqdm
 from datasets import Dataset, Split
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from transformers import DataCollatorForLanguageModeling
 
-from src.multiprocessing import start_seprate_process
-from src.profiler import Profiler, NvidiaProfiler, TorchProfiler as TorchProfiler
-from src.model import load_model
+from metriwatt.multiprocessing import start_separate_process
+from metriwatt.profiler import Profiler, NvidiaProfiler, TorchProfiler as TorchProfiler
+from metriwatt.model import load_model
 
 
 class ModelEvaluator:
@@ -524,10 +525,10 @@ def energy_eval_process_wrapper(result_queue: Queue, *args, **kwargs):
 def energy_eval_wrapped(output_dir: str, model_name: str, tokenizer_name: str = None):
     os.makedirs(output_dir, exist_ok=True)
 
-    energy_metrics = start_seprate_process(
+    energy_metrics = start_separate_process(
         energy_eval_process_wrapper,
         [model_name, tokenizer_name],
     )
     os.makedirs(os.path.dirname(f"{output_dir}/energy_metrics.json"), exist_ok=True)
-    with open(f"{output_dir}/energy_metrics.json", "w") as f:
+    with open(f"{output_dir}/energy_metrics.json", "w", encoding="utf-8") as f:
         json.dump(energy_metrics, f)
