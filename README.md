@@ -19,7 +19,7 @@ This repository accompanies my Bachelor's thesis at the chair of Artificial Inte
 2. Activate the environment:
 
 ```bash
-poetry env activate
+$(poetry env activate)
 ```
 
 3. Explore metrics experiments and power profiling:
