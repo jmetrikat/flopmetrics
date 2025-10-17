@@ -13,7 +13,6 @@ This repository accompanies my Bachelor's thesis at the chair of Artificial Inte
 1. Install dependencies (requires Poetry):
 
 ```bash
-git submodule add https://github.com/EleutherAI/lm-evaluation-harness.git external/lm-eval
 ./install.sh
 ```
 
