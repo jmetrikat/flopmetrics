@@ -103,10 +103,7 @@ class FileCacheResultHandler(ResultHandler):
 
     def _read_line_tuple(self, line: str) -> Tuple[Any, ...]:
         return tuple(
-            t(el)
-            for el, t in zip_longest(
-                line.strip().split(","), self.dtypes, fillvalue=str
-            )
+            t(el) for el, t in zip_longest(line.strip().split(","), self.dtypes, fillvalue=str)
         )
 
     def get(self) -> Union[Tuple[Any, ...], None]:
@@ -123,7 +120,7 @@ class FileCacheResultHandler(ResultHandler):
         return data
 
 
-def start_seprate_process(target: Callable, other_args: List) -> Any:
+def start_separate_process(target: Callable, other_args: List) -> Any:
     """
     Function to start a separate process for the evaluation
     Args:

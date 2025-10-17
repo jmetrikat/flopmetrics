@@ -21,7 +21,6 @@ from transformers import DataCollatorForLanguageModeling
 
 from src.multiprocessing import start_seprate_process
 from src.profiler import Profiler, NvidiaProfiler, TorchProfiler as TorchProfiler
-from src.util import save_json
 from src.model import load_model
 
 
@@ -529,4 +528,6 @@ def energy_eval_wrapped(output_dir: str, model_name: str, tokenizer_name: str = 
         energy_eval_process_wrapper,
         [model_name, tokenizer_name],
     )
-    save_json(energy_metrics, f"{output_dir}/energy_metrics.json")
+    os.makedirs(os.path.dirname(f"{output_dir}/energy_metrics.json"), exist_ok=True)
+    with open(f"{output_dir}/energy_metrics.json", "w") as f:
+        json.dump(energy_metrics, f)
