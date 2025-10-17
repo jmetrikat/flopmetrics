@@ -1,3 +1,4 @@
+"""NCU profiler."""
 import argparse
 import importlib
 import subprocess
@@ -72,7 +73,7 @@ class NCUProfiler:
         module = str(function.__module__)
         function = str(function.__name__)
         executable_command = f"import {module} as m; m.{function}({', '.join([f'{k}={v}' for k, v in arguments.items()])})"
-        return self.profile(f"python3 -c '{executable_command}'")
+        return self.profile(f"sudo env \"PATH=$PATH\" python3 -c '{executable_command}'")
 
     def _parse_result(self, result: str):
         lines = result.split("\n")

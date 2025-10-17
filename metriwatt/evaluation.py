@@ -1,5 +1,4 @@
-"""Performance evaluation module (using lm_eval_harness)."""
-
+"""Performance evaluation module (using lm_eval)."""
 from abc import abstractmethod
 from multiprocessing import Queue
 import json

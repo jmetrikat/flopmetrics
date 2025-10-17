@@ -1,5 +1,4 @@
 """Classes for profiling runtime of training and inference."""
-
 import subprocess
 from contextlib import contextmanager
 from datetime import datetime
@@ -13,7 +12,7 @@ from plotly.subplots import make_subplots
 from torch.autograd.profiler_util import EventList, FunctionEvent
 from torch.profiler import ProfilerActivity, profile
 
-from metriwatt import (
+from metriwatt.multiprocessing import (
     FileCacheResultHandler,
     MPQueueResultHandler,
     ResultHandler,

@@ -1,3 +1,4 @@
+"""Multiprocessing utilities."""
 from abc import ABC
 from itertools import zip_longest
 from multiprocessing import Manager, Process, Queue
