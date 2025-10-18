@@ -10,7 +10,12 @@ VOCAB_SAMPLE_SIZE = 1000
 NUM_SAMPLES = 110
 NUM_WARMUP_SAMPLES = 10
 NVIDIA_QUERY_INTERVAL = 5
-JSONL_PATH = f"results/eff_{MODEL_SHORT_NAME}_energy_results.jsonl"
+
+config_name = input("Enter configuration name (e.g., a40_fp16): ").strip()
+if not config_name:
+    raise ValueError("Configuration name cannot be empty")
+
+JSONL_PATH = f"results/eff_{config_name}_{MODEL_SHORT_NAME}_energy_results.jsonl"
 
 def evaluate_model():
     model, tokenizer = load_model()
