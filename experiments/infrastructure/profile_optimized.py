@@ -7,6 +7,7 @@ import time
 import gc
 import os
 import argparse
+import glob
 
 MODEL_NAME = "meta-llama/Llama-3.2-1B-Instruct"
 MODEL_SHORT_NAME = "llama3.2_1b"
@@ -134,7 +135,7 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config):
     metrics["config_name"] = config_name
     metrics["batch_size"] = config["batch_size"]
     metrics["input_length"] = config["input_length"]
-    metrics["precision"] = config.get("precision", "fp16")
+    metrics["precision"] = config.get("precision", "bf16")
     metrics["gflops_per_joule_forward"] = gflops_per_joule_forward
     metrics["gflops_per_joule_backward"] = gflops_per_joule_backward
     metrics["gpu_config"] = gpu_config
@@ -157,6 +158,41 @@ def save_individual_result(metrics, config_name, gpu_config, precision="bf16"):
         f.write(json.dumps(sanitized) + "\n")
 
     print(f"📁 Individual result saved to: {individual_path}")
+
+def unify_results(gpu_config, precision="bf16"):
+    """Unify existing individual result files into a single file"""
+    results_dir = "results_optimized"
+    if not os.path.exists(results_dir):
+        print(f"❌ Results directory '{results_dir}' does not exist")
+        return
+
+    # Pattern to match individual result files
+    pattern = f"{results_dir}/{gpu_config}_{precision}_{MODEL_SHORT_NAME}_*_result.jsonl"
+    individual_files = glob.glob(pattern)
+
+    if not individual_files:
+        print(f"❌ No individual result files found matching pattern: {pattern}")
+        return
+
+    print(f"📁 Found {len(individual_files)} individual result files:")
+    for file in individual_files:
+        print(f"   - {os.path.basename(file)}")
+
+    # Create unified file
+    unified_path = f"{results_dir}/{gpu_config}_{precision}_{MODEL_SHORT_NAME}_all_configs_results.jsonl"
+
+    with open(unified_path, "w", encoding="utf-8") as unified_file:
+        for individual_file in sorted(individual_files):
+            try:
+                with open(individual_file, "r", encoding="utf-8") as f:
+                    content = f.read().strip()
+                    if content:
+                        unified_file.write(content + "\n")
+                        print(f"✅ Added: {os.path.basename(individual_file)}")
+            except Exception as e:
+                print(f"❌ Error reading {individual_file}: {e}")
+
+    print(f"\n🎉 Unified results saved to: {unified_path}")
 
 def benchmark_machine(configs_to_run=None, precision="bf16"):
     """Benchmark all configurations for a specific machine"""
@@ -236,23 +272,17 @@ def benchmark_machine(configs_to_run=None, precision="bf16"):
         print(f"\n🏆 BEST CONFIGURATION: {best_config.upper()}")
         print(f"   Total Efficiency: {best_efficiency:.2f} GFLOPs/J")
 
-        # Calculate improvement over baseline
-        if "baseline" in all_results:
-            baseline_eff = all_results["baseline"]["gflops_per_joule_forward"] + all_results["baseline"]["gflops_per_joule_backward"]
-            improvement = best_efficiency / baseline_eff
-            print(f"   Improvement over baseline: {improvement:.1f}x")
 
-    # Save unified results
+    # Save unified results (all configurations in one file for easy comparison)
     os.makedirs("results_optimized", exist_ok=True)
     jsonl_path = f"results_optimized/{gpu_config}_{precision}_{MODEL_SHORT_NAME}_all_configs_results.jsonl"
 
-    with open(jsonl_path, "w", encoding="utf-8") as f:
+    with open(jsonl_path, "a", encoding="utf-8") as f:
         for config_name, metrics in all_results.items():
             sanitized = {k: v.item() if hasattr(v, "item") else v for k, v in metrics.items()}
-            sanitized["gpu_config"] = gpu_config
             f.write(json.dumps(sanitized) + "\n")
 
-    print(f"\n📁 All results saved to: {jsonl_path}")
+    print(f"\n📁 Unified results appended to: {jsonl_path}")
     return all_results
 
 def main():
@@ -275,6 +305,11 @@ def main():
         default="bf16",
         help="Precision to use for model loading (default: bf16)"
     )
+    parser.add_argument(
+        "--unify",
+        action="store_true",
+        help="Unify existing individual result files into a single file"
+    )
 
     args = parser.parse_args()
 
@@ -286,6 +321,13 @@ def main():
         print("  fp32 - Single precision (32-bit)")
         print("  fp16 - Half precision (16-bit)")
         print("  bf16 - Brain floating point (16-bit)")
+        return
+
+    if args.unify:
+        gpu_config = input("Enter GPU configuration name to unify (e.g., a40, l40): ").strip()
+        if not gpu_config:
+            raise ValueError("GPU configuration name cannot be empty")
+        unify_results(gpu_config, args.precision)
         return
 
     configs_to_run = args.configs

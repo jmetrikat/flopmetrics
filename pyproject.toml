@@ -20,6 +20,7 @@ tqdm = "^4.67.1"
 nbformat = "^5.10.4"
 peft = "^0.15.1"
 matplotlib = "^3.10.1"
+pynvml = "^11.5.1"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
