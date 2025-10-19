@@ -12,38 +12,53 @@ MODEL_NAME = "meta-llama/Llama-3.2-1B-Instruct"
 MODEL_SHORT_NAME = "llama3.2_1b"
 
 CONFIGS = {
-    "small_batch": {
+    "small": {
         "batch_size": 8,
         "input_length": 512,
         "num_samples": 100,
         "num_warmup_samples": 10,
         "nvidia_query_interval": 10,
+        "precision": "bf16",
     },
-    "medium_batch": {
+    "mid": {
         "batch_size": 8,
         "input_length": 1024,
         "num_samples": 100,
         "num_warmup_samples": 10,
         "nvidia_query_interval": 10,
+        "precision": "bf16",
     },
-    "large_batch": {
+    "large": {
         "batch_size": 8,
         "input_length": 2048,
         "num_samples": 100,
         "num_warmup_samples": 10,
         "nvidia_query_interval": 10,
+        "precision": "bf16",
     }
 }
 
-def load_model():
+def load_model(precision="bf16"):
     """Load model with optimizations for better performance"""
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     tokenizer.pad_token = tokenizer.eos_token
 
-    # Use bfloat16 for better performance on modern GPUs
+    # Choose precision based on parameter
+    if precision == "fp32":
+        torch_dtype = torch.float32
+        print("Loading model with FP32 precision")
+    elif precision == "fp16":
+        torch_dtype = torch.float16
+        print("Loading model with FP16 precision")
+    elif precision == "bf16":
+        torch_dtype = torch.bfloat16
+        print("Loading model with BF16 precision")
+    else:
+        raise ValueError(f"Unsupported precision: {precision}. Use 'fp32', 'fp16', or 'bf16'")
+
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
-        torch_dtype=torch.bfloat16,
+        torch_dtype=torch_dtype,
         device_map="auto",  # Automatic device placement
         low_cpu_mem_usage=True
     )
@@ -51,7 +66,7 @@ def load_model():
     # Enable optimizations
     model = model.eval()
 
-    print("Model loaded successfully")
+    print(f"Model loaded successfully with {precision} precision")
     return model, tokenizer
 
 def evaluate_config(model, tokenizer, config_name, config, gpu_config):
@@ -61,6 +76,7 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config):
     print(f"{'='*60}")
 
     print(f"Final configuration: {config}")
+    print(f"Precision: {config.get('precision', 'bf16')}")
 
     eval_args = EnergyEvaluationArguments(
         num_samples=config["num_samples"],
@@ -90,6 +106,7 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config):
             "config_name": config_name,
             "batch_size": config["batch_size"],
             "input_length": config["input_length"],
+            "precision": config.get("precision", "bf16"),
             "error": str(e),
             "gflops_per_joule_forward": 0,
             "gflops_per_joule_backward": 0
@@ -117,22 +134,23 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config):
     metrics["config_name"] = config_name
     metrics["batch_size"] = config["batch_size"]
     metrics["input_length"] = config["input_length"]
+    metrics["precision"] = config.get("precision", "fp16")
     metrics["gflops_per_joule_forward"] = gflops_per_joule_forward
     metrics["gflops_per_joule_backward"] = gflops_per_joule_backward
     metrics["gpu_config"] = gpu_config
 
     # Save individual result immediately
-    save_individual_result(metrics, config_name, gpu_config)
+    save_individual_result(metrics, config_name, gpu_config, config.get('precision', 'bf16'))
 
     return metrics
 
-def save_individual_result(metrics, config_name, gpu_config):
+def save_individual_result(metrics, config_name, gpu_config, precision="bf16"):
     """Save individual configuration result to file"""
     # Ensure results_optimized directory exists
     os.makedirs("results_optimized", exist_ok=True)
 
-    # Create individual result file
-    individual_path = f"results_optimized/{gpu_config}_{MODEL_SHORT_NAME}_{config_name}_result.jsonl"
+    # Create individual result file with precision in name
+    individual_path = f"results_optimized/{gpu_config}_{precision}_{MODEL_SHORT_NAME}_{config_name}_result.jsonl"
 
     with open(individual_path, "w", encoding="utf-8") as f:
         sanitized = {k: v.item() if hasattr(v, "item") else v for k, v in metrics.items()}
@@ -140,7 +158,7 @@ def save_individual_result(metrics, config_name, gpu_config):
 
     print(f"📁 Individual result saved to: {individual_path}")
 
-def benchmark_machine(configs_to_run=None):
+def benchmark_machine(configs_to_run=None, precision="bf16"):
     """Benchmark all configurations for a specific machine"""
     gpu_config = input("Enter GPU configuration name (e.g., a40_fp16, l40_fp32): ").strip()
     if not gpu_config:
@@ -148,6 +166,7 @@ def benchmark_machine(configs_to_run=None):
 
     print(f"\n{'='*80}")
     print(f"BENCHMARKING MACHINE: {gpu_config.upper()}")
+    print(f"PRECISION: {precision.upper()}")
     print(f"{'='*80}")
 
     # Determine which configurations to run
@@ -162,13 +181,15 @@ def benchmark_machine(configs_to_run=None):
 
     print(f"Running configurations: {configs_to_run}")
 
-    # Load model once for all configurations
-    model, tokenizer = load_model()
+    # Load model once for all configurations with specified precision
+    model, tokenizer = load_model(precision)
 
     # Evaluate specified configurations
     all_results = {}
     for config_name in configs_to_run:
         config = CONFIGS[config_name].copy()
+        # Override precision with command line argument
+        config["precision"] = precision
         try:
             metrics = evaluate_config(model, tokenizer, config_name, config, gpu_config)
             all_results[config_name] = metrics
@@ -179,6 +200,7 @@ def benchmark_machine(configs_to_run=None):
                 "config_name": config_name,
                 "batch_size": config["batch_size"],
                 "input_length": config["input_length"],
+                "precision": precision,
                 "error": str(e),
                 "gflops_per_joule_forward": 0,
                 "gflops_per_joule_backward": 0,
@@ -222,7 +244,7 @@ def benchmark_machine(configs_to_run=None):
 
     # Save unified results
     os.makedirs("results_optimized", exist_ok=True)
-    jsonl_path = f"results_optimized/{gpu_config}_{MODEL_SHORT_NAME}_all_configs_results.jsonl"
+    jsonl_path = f"results_optimized/{gpu_config}_{precision}_{MODEL_SHORT_NAME}_all_configs_results.jsonl"
 
     with open(jsonl_path, "w", encoding="utf-8") as f:
         for config_name, metrics in all_results.items():
@@ -240,12 +262,18 @@ def main():
         "--configs",
         nargs="+",
         choices=list(CONFIGS.keys()),
-        help="Specific configurations to run (e.g., --configs small_batch medium_batch)"
+        help="Specific configurations to run (e.g., --configs small mid large)"
     )
     parser.add_argument(
         "--list-configs",
         action="store_true",
         help="List available configurations and exit"
+    )
+    parser.add_argument(
+        "--precision",
+        choices=["fp32", "fp16", "bf16"],
+        default="bf16",
+        help="Precision to use for model loading (default: bf16)"
     )
 
     args = parser.parse_args()
@@ -254,10 +282,14 @@ def main():
         print("Available configurations:")
         for name, config in CONFIGS.items():
             print(f"  {name}")
+        print("\nAvailable precisions:")
+        print("  fp32 - Single precision (32-bit)")
+        print("  fp16 - Half precision (16-bit)")
+        print("  bf16 - Brain floating point (16-bit)")
         return
 
     configs_to_run = args.configs
-    benchmark_machine(configs_to_run)
+    benchmark_machine(configs_to_run, args.precision)
 
 if __name__ == "__main__":
     main()
