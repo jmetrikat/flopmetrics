@@ -15,7 +15,7 @@ config_name = input("Enter configuration name (e.g., a40_fp16): ").strip()
 if not config_name:
     raise ValueError("Configuration name cannot be empty")
 
-JSONL_PATH = f"results/eff_{config_name}_{MODEL_SHORT_NAME}_energy_results.jsonl"
+JSONL_PATH = f"results/baseline_{config_name}_{MODEL_SHORT_NAME}_energy_results.jsonl"
 
 def evaluate_model():
     model, tokenizer = load_model()
@@ -35,7 +35,19 @@ def evaluate_model():
     energy_backward = metrics["backward_energy_mean"]
     flops_forward = metrics["forward_flops_sum"]
     flops_backward = metrics["backward_flops_sum"]
+
+    gflops_per_joule_forward = (flops_forward / energy_forward) / 1e9
+    gflops_per_joule_backward = (flops_backward / energy_backward) / 1e9
+
     print(f"average energy fwd (Ws) = {energy_forward}, FLOPs fwd = {flops_forward}, average energy bwd (Ws) = {energy_backward}, FLOPs bwd = {flops_backward}")
+    print(f"Forward efficiency: {gflops_per_joule_forward:.2f} GFLOPs/J, Backward efficiency: {gflops_per_joule_backward:.2f} GFLOPs/J")
+
+    # Add metadata for consistency
+    metrics["config_name"] = config_name
+    metrics["batch_size"] = 16
+    metrics["input_length"] = INPUT_LENGTH
+    metrics["gflops_per_joule_forward"] = gflops_per_joule_forward
+    metrics["gflops_per_joule_backward"] = gflops_per_joule_backward
 
     return metrics
 
