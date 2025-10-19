@@ -137,13 +137,7 @@ def load_model_with_optimizations():
 
     model = model.eval()
 
-    # Apply optimizations
-    if hasattr(torch, 'compile'):
-        try:
-            model = torch.compile(model, mode="max-autotune")
-            print("✓ Model compiled with torch.compile")
-        except Exception as e:
-            print(f"✗ torch.compile failed: {e}")
+    print("✓ Model loaded successfully (no compilation)")
 
     # Enable memory efficient attention if available
     if hasattr(model.config, 'use_memory_efficient_attention'):

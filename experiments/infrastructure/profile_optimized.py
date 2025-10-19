@@ -75,13 +75,7 @@ def load_model_optimized():
     # Enable optimizations
     model = model.eval()
 
-    # Compile model for better performance (PyTorch 2.0+)
-    if hasattr(torch, 'compile'):
-        try:
-            model = torch.compile(model, mode="max-autotune")
-            print("Model compiled with torch.compile")
-        except Exception as e:
-            print(f"torch.compile failed: {e}")
+    print("Model loaded successfully (no compilation)")
 
     return model, tokenizer
 
