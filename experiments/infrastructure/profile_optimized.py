@@ -70,7 +70,7 @@ def load_model(precision="bf16"):
     print(f"Model loaded successfully with {precision} precision")
     return model, tokenizer
 
-def evaluate_config(model, tokenizer, config_name, config, gpu_config):
+def evaluate_config(model, tokenizer, config_name, config, gpu_config, forward_only=False):
     """Evaluate model with specific configuration"""
     print(f"\n{'='*60}")
     print(f"Evaluating configuration: {config_name}")
@@ -99,7 +99,12 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config):
     start_time = time.time()
 
     try:
-        metrics = evaluator.evaluate(execute=["forward", "backward"])
+        if forward_only:
+            metrics = evaluator.evaluate(execute=["forward"])
+            print("Running forward pass only (inference mode)")
+        else:
+            metrics = evaluator.evaluate(execute=["forward", "backward"])
+            print("Running forward and backward passes (training mode)")
     except Exception as e:
         print(f"Error during evaluation: {e}")
         # Return a minimal metrics dict to avoid crashes
@@ -118,18 +123,26 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config):
 
     # Calculate efficiency metrics
     energy_forward = metrics["forward_energy_mean"]
-    energy_backward = metrics["backward_energy_mean"]
     flops_forward = metrics["forward_flops_sum"]
-    flops_backward = metrics["backward_flops_sum"]
-
     gflops_per_joule_forward = (flops_forward / energy_forward) / 1e9
-    gflops_per_joule_backward = (flops_backward / energy_backward) / 1e9
 
-    print(f"\n=== {config_name.upper()} RESULTS ===")
-    print(f"Batch size: {config['batch_size']}")
-    print(f"Input length: {config['input_length']}")
-    print(f"Forward - Energy: {energy_forward:.3f}J, FLOPs: {flops_forward/1e9:.1f}G, Efficiency: {gflops_per_joule_forward:.2f} GFLOPs/J")
-    print(f"Backward - Energy: {energy_backward:.3f}J, FLOPs: {flops_backward/1e9:.1f}G, Efficiency: {gflops_per_joule_backward:.2f} GFLOPs/J")
+    if forward_only:
+        energy_backward = 0.0
+        flops_backward = 0.0
+        gflops_per_joule_backward = 0.0
+        print(f"\n=== {config_name.upper()} RESULTS (FORWARD ONLY) ===")
+        print(f"Batch size: {config['batch_size']}")
+        print(f"Input length: {config['input_length']}")
+        print(f"Forward - Energy: {energy_forward:.3f}J, FLOPs: {flops_forward/1e9:.1f}G, Efficiency: {gflops_per_joule_forward:.2f} GFLOPs/J")
+    else:
+        energy_backward = metrics["backward_energy_mean"]
+        flops_backward = metrics["backward_flops_sum"]
+        gflops_per_joule_backward = (flops_backward / energy_backward) / 1e9
+        print(f"\n=== {config_name.upper()} RESULTS ===")
+        print(f"Batch size: {config['batch_size']}")
+        print(f"Input length: {config['input_length']}")
+        print(f"Forward - Energy: {energy_forward:.3f}J, FLOPs: {flops_forward/1e9:.1f}G, Efficiency: {gflops_per_joule_forward:.2f} GFLOPs/J")
+        print(f"Backward - Energy: {energy_backward:.3f}J, FLOPs: {flops_backward/1e9:.1f}G, Efficiency: {gflops_per_joule_backward:.2f} GFLOPs/J")
 
     # Add configuration info to results
     metrics["config_name"] = config_name
@@ -194,7 +207,7 @@ def unify_results(gpu_config, precision="bf16"):
 
     print(f"\n🎉 Unified results saved to: {unified_path}")
 
-def benchmark_machine(configs_to_run=None, precision="bf16"):
+def benchmark_machine(configs_to_run=None, precision="bf16", forward_only=False):
     """Benchmark all configurations for a specific machine"""
     gpu_config = input("Enter GPU configuration name (e.g., a40_fp16, l40_fp32): ").strip()
     if not gpu_config:
@@ -227,7 +240,7 @@ def benchmark_machine(configs_to_run=None, precision="bf16"):
         # Override precision with command line argument
         config["precision"] = precision
         try:
-            metrics = evaluate_config(model, tokenizer, config_name, config, gpu_config)
+            metrics = evaluate_config(model, tokenizer, config_name, config, gpu_config, forward_only)
             all_results[config_name] = metrics
         except Exception as e:
             print(f"Error evaluating {config_name}: {e}")
@@ -248,7 +261,10 @@ def benchmark_machine(configs_to_run=None, precision="bf16"):
     best_config = None
     best_efficiency = 0
     for config_name, metrics in all_results.items():
-        total_efficiency = metrics["gflops_per_joule_forward"] + metrics["gflops_per_joule_backward"]
+        if forward_only:
+            total_efficiency = metrics["gflops_per_joule_forward"]
+        else:
+            total_efficiency = metrics["gflops_per_joule_forward"] + metrics["gflops_per_joule_backward"]
         if total_efficiency > best_efficiency:
             best_efficiency = total_efficiency
             best_config = config_name
@@ -258,15 +274,26 @@ def benchmark_machine(configs_to_run=None, precision="bf16"):
     print(f"{'='*80}")
 
     # Sort results by efficiency
-    sorted_results = sorted(all_results.items(),
-                           key=lambda x: x[1]["gflops_per_joule_forward"] + x[1]["gflops_per_joule_backward"],
-                           reverse=True)
+    if forward_only:
+        sorted_results = sorted(all_results.items(),
+                               key=lambda x: x[1]["gflops_per_joule_forward"],
+                               reverse=True)
+    else:
+        sorted_results = sorted(all_results.items(),
+                               key=lambda x: x[1]["gflops_per_joule_forward"] + x[1]["gflops_per_joule_backward"],
+                               reverse=True)
 
     for i, (config_name, metrics) in enumerate(sorted_results):
-        total_eff = metrics["gflops_per_joule_forward"] + metrics["gflops_per_joule_backward"]
-        print(f"{i+1}. {config_name.upper()}: {total_eff:.2f} GFLOPs/J")
-        print(f"   Batch: {metrics['batch_size']}, Length: {metrics['input_length']}")
-        print(f"   Forward: {metrics['gflops_per_joule_forward']:.2f}, Backward: {metrics['gflops_per_joule_backward']:.2f}")
+        if forward_only:
+            total_eff = metrics["gflops_per_joule_forward"]
+            print(f"{i+1}. {config_name.upper()}: {total_eff:.2f} GFLOPs/J (Forward Only)")
+            print(f"   Batch: {metrics['batch_size']}, Length: {metrics['input_length']}")
+            print(f"   Forward: {metrics['gflops_per_joule_forward']:.2f}")
+        else:
+            total_eff = metrics["gflops_per_joule_forward"] + metrics["gflops_per_joule_backward"]
+            print(f"{i+1}. {config_name.upper()}: {total_eff:.2f} GFLOPs/J")
+            print(f"   Batch: {metrics['batch_size']}, Length: {metrics['input_length']}")
+            print(f"   Forward: {metrics['gflops_per_joule_forward']:.2f}, Backward: {metrics['gflops_per_joule_backward']:.2f}")
 
     if best_config:
         print(f"\n🏆 BEST CONFIGURATION: {best_config.upper()}")
@@ -310,6 +337,11 @@ def main():
         action="store_true",
         help="Unify existing individual result files into a single file"
     )
+    parser.add_argument(
+        "--forward-only",
+        action="store_true",
+        help="Run only forward pass (no backward pass)"
+    )
 
     args = parser.parse_args()
 
@@ -331,7 +363,7 @@ def main():
         return
 
     configs_to_run = args.configs
-    benchmark_machine(configs_to_run, args.precision)
+    benchmark_machine(configs_to_run, args.precision, args.forward_only)
 
 if __name__ == "__main__":
     main()
