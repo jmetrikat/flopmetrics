@@ -5,6 +5,8 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from metriwatt.evaluation import ModelEnergyEvaluator, EnergyEvaluationArguments
 import time
 import gc
+import os
+import argparse
 
 MODEL_NAME = "meta-llama/Llama-3.2-1B-Instruct"
 MODEL_SHORT_NAME = "llama3.2_1b"
@@ -78,7 +80,7 @@ def load_model():
     print("Model loaded successfully")
     return model, tokenizer
 
-def evaluate_config(model, tokenizer, config_name, config):
+def evaluate_config(model, tokenizer, config_name, config, gpu_config):
     """Evaluate model with specific configuration"""
     print(f"\n{'='*60}")
     print(f"Evaluating configuration: {config_name}")
@@ -110,7 +112,20 @@ def evaluate_config(model, tokenizer, config_name, config):
     print("Starting evaluation...")
     start_time = time.time()
 
-    metrics = evaluator.evaluate(execute=["forward", "backward"])
+    try:
+        metrics = evaluator.evaluate(execute=["forward", "backward"])
+    except Exception as e:
+        print(f"Error during evaluation: {e}")
+        # Return a minimal metrics dict to avoid crashes
+        return {
+            "config_name": config_name,
+            "batch_size": config["batch_size"],
+            "input_length": config["input_length"],
+            "description": config["description"],
+            "error": str(e),
+            "gflops_per_joule_forward": 0,
+            "gflops_per_joule_backward": 0
+        }
 
     end_time = time.time()
     print(f"Evaluation completed in {end_time - start_time:.2f} seconds")
@@ -137,10 +152,28 @@ def evaluate_config(model, tokenizer, config_name, config):
     metrics["gflops_per_joule_forward"] = gflops_per_joule_forward
     metrics["gflops_per_joule_backward"] = gflops_per_joule_backward
     metrics["description"] = config["description"]
+    metrics["gpu_config"] = gpu_config
+
+    # Save individual result immediately
+    save_individual_result(metrics, config_name, gpu_config)
 
     return metrics
 
-def benchmark_machine():
+def save_individual_result(metrics, config_name, gpu_config):
+    """Save individual configuration result to file"""
+    # Ensure results_optimized directory exists
+    os.makedirs("results_optimized", exist_ok=True)
+
+    # Create individual result file
+    individual_path = f"results_optimized/{gpu_config}_{MODEL_SHORT_NAME}_{config_name}_result.jsonl"
+
+    with open(individual_path, "w", encoding="utf-8") as f:
+        sanitized = {k: v.item() if hasattr(v, "item") else v for k, v in metrics.items()}
+        f.write(json.dumps(sanitized) + "\n")
+
+    print(f"📁 Individual result saved to: {individual_path}")
+
+def benchmark_machine(configs_to_run=None):
     """Benchmark all configurations for a specific machine"""
     gpu_config = input("Enter GPU configuration name (e.g., a40_fp16, l40_fp32): ").strip()
     if not gpu_config:
@@ -150,17 +183,41 @@ def benchmark_machine():
     print(f"BENCHMARKING MACHINE: {gpu_config.upper()}")
     print(f"{'='*80}")
 
+    # Determine which configurations to run
+    if configs_to_run is None:
+        configs_to_run = list(CONFIGS.keys())
+    else:
+        # Validate config names
+        invalid_configs = [c for c in configs_to_run if c not in CONFIGS]
+        if invalid_configs:
+            print(f"Warning: Invalid configuration names: {invalid_configs}")
+            configs_to_run = [c for c in configs_to_run if c in CONFIGS]
+
+    print(f"Running configurations: {configs_to_run}")
+
     # Load model once for all configurations
     model, tokenizer = load_model()
 
-    # Evaluate all configurations
+    # Evaluate specified configurations
     all_results = {}
-    for config_name, config in CONFIGS.items():
+    for config_name in configs_to_run:
+        config = CONFIGS[config_name].copy()
         try:
-            metrics = evaluate_config(model, tokenizer, config_name, config.copy())
+            metrics = evaluate_config(model, tokenizer, config_name, config, gpu_config)
             all_results[config_name] = metrics
         except Exception as e:
             print(f"Error evaluating {config_name}: {e}")
+            # Create error result
+            all_results[config_name] = {
+                "config_name": config_name,
+                "batch_size": config["batch_size"],
+                "input_length": config["input_length"],
+                "description": config["description"],
+                "error": str(e),
+                "gflops_per_joule_forward": 0,
+                "gflops_per_joule_backward": 0,
+                "gpu_config": gpu_config
+            }
             continue
 
     # Find best configuration
@@ -198,6 +255,7 @@ def benchmark_machine():
             print(f"   Improvement over baseline: {improvement:.1f}x")
 
     # Save unified results
+    os.makedirs("results_optimized", exist_ok=True)
     jsonl_path = f"results_optimized/{gpu_config}_{MODEL_SHORT_NAME}_all_configs_results.jsonl"
 
     with open(jsonl_path, "w", encoding="utf-8") as f:
@@ -209,5 +267,31 @@ def benchmark_machine():
     print(f"\n📁 All results saved to: {jsonl_path}")
     return all_results
 
+def main():
+    """Main function with command line argument parsing"""
+    parser = argparse.ArgumentParser(description="Benchmark model configurations")
+    parser.add_argument(
+        "--configs",
+        nargs="+",
+        choices=list(CONFIGS.keys()),
+        help="Specific configurations to run (e.g., --configs small_batch medium_batch)"
+    )
+    parser.add_argument(
+        "--list-configs",
+        action="store_true",
+        help="List available configurations and exit"
+    )
+
+    args = parser.parse_args()
+
+    if args.list_configs:
+        print("Available configurations:")
+        for name, config in CONFIGS.items():
+            print(f"  {name}: {config['description']}")
+        return
+
+    configs_to_run = args.configs
+    benchmark_machine(configs_to_run)
+
 if __name__ == "__main__":
-    benchmark_machine()
+    main()
