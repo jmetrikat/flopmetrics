@@ -11,55 +11,29 @@ import argparse
 MODEL_NAME = "meta-llama/Llama-3.2-1B-Instruct"
 MODEL_SHORT_NAME = "llama3.2_1b"
 
-# Optimized configurations focusing on batch size and sequence length
 CONFIGS = {
     "small_batch": {
-        "batch_size": 32,
-        "input_length": 512,  # Longer sequences for better utilization
+        "batch_size": 8,
+        "input_length": 512,
         "num_samples": 100,
         "num_warmup_samples": 10,
-        "nvidia_query_interval": 10,  # Consistent across all configs for fair comparison
-        "description": "Small batch optimization with longer sequences"
+        "nvidia_query_interval": 10,
     },
     "medium_batch": {
-        "batch_size": 64,
+        "batch_size": 8,
         "input_length": 1024,
         "num_samples": 100,
         "num_warmup_samples": 10,
-        "nvidia_query_interval": 10,  # Consistent across all configs for fair comparison
-        "description": "Medium batch optimization for balanced performance"
+        "nvidia_query_interval": 10,
     },
     "large_batch": {
-        "batch_size": 128,
+        "batch_size": 8,
         "input_length": 2048,
         "num_samples": 100,
         "num_warmup_samples": 10,
-        "nvidia_query_interval": 10,  # Consistent across all configs for fair comparison
-        "description": "Large batch optimization for maximum throughput"
+        "nvidia_query_interval": 10,
     }
 }
-
-def get_optimal_batch_size(model, device, dtype=torch.bfloat16):
-    """Automatically determine optimal batch size based on GPU memory"""
-    model_size = sum(p.numel() * p.element_size() for p in model.parameters())
-
-    # Get GPU memory info
-    if torch.cuda.is_available():
-        gpu_memory = torch.cuda.get_device_properties(device).total_memory
-        available_memory = gpu_memory * 0.8  # Use 80% of GPU memory
-
-        # Estimate memory per sample (rough approximation)
-        memory_per_sample = model_size * 4  # Forward + backward + gradients
-
-        optimal_batch_size = int(available_memory / memory_per_sample)
-        optimal_batch_size = max(16, min(optimal_batch_size, 256))  # Clamp between 16-256
-
-        print(f"GPU Memory: {gpu_memory / 1e9:.1f}GB")
-        print(f"Model Size: {model_size / 1e9:.1f}GB")
-        print(f"Estimated optimal batch size: {optimal_batch_size}")
-
-        return optimal_batch_size
-    return 32
 
 def load_model():
     """Load model with optimizations for better performance"""
@@ -84,12 +58,7 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config):
     """Evaluate model with specific configuration"""
     print(f"\n{'='*60}")
     print(f"Evaluating configuration: {config_name}")
-    print(f"Description: {config['description']}")
     print(f"{'='*60}")
-
-    # Auto-determine optimal batch size based on GPU memory
-    optimal_batch_size = get_optimal_batch_size(model, model.device)
-    config["batch_size"] = min(config["batch_size"], optimal_batch_size)
 
     print(f"Final configuration: {config}")
 
@@ -121,7 +90,6 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config):
             "config_name": config_name,
             "batch_size": config["batch_size"],
             "input_length": config["input_length"],
-            "description": config["description"],
             "error": str(e),
             "gflops_per_joule_forward": 0,
             "gflops_per_joule_backward": 0
@@ -151,7 +119,6 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config):
     metrics["input_length"] = config["input_length"]
     metrics["gflops_per_joule_forward"] = gflops_per_joule_forward
     metrics["gflops_per_joule_backward"] = gflops_per_joule_backward
-    metrics["description"] = config["description"]
     metrics["gpu_config"] = gpu_config
 
     # Save individual result immediately
@@ -212,7 +179,6 @@ def benchmark_machine(configs_to_run=None):
                 "config_name": config_name,
                 "batch_size": config["batch_size"],
                 "input_length": config["input_length"],
-                "description": config["description"],
                 "error": str(e),
                 "gflops_per_joule_forward": 0,
                 "gflops_per_joule_backward": 0,
@@ -287,7 +253,7 @@ def main():
     if args.list_configs:
         print("Available configurations:")
         for name, config in CONFIGS.items():
-            print(f"  {name}: {config['description']}")
+            print(f"  {name}")
         return
 
     configs_to_run = args.configs
