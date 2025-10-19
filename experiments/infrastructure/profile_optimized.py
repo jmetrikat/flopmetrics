@@ -14,7 +14,7 @@ MODEL_SHORT_NAME = "llama3.2_1b"
 CONFIGS = {
     "small": {
         "batch_size": 8,
-        "input_length": 512,
+        "input_length": 256,
         "num_samples": 100,
         "num_warmup_samples": 10,
         "nvidia_query_interval": 10,
@@ -22,7 +22,7 @@ CONFIGS = {
     },
     "mid": {
         "batch_size": 8,
-        "input_length": 1024,
+        "input_length": 512,
         "num_samples": 100,
         "num_warmup_samples": 10,
         "nvidia_query_interval": 10,
@@ -30,7 +30,7 @@ CONFIGS = {
     },
     "large": {
         "batch_size": 8,
-        "input_length": 2048,
+        "input_length": 1024,
         "num_samples": 100,
         "num_warmup_samples": 10,
         "nvidia_query_interval": 10,
