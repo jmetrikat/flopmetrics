@@ -66,6 +66,21 @@ def analyze_unified_results():
         else:
             total_gflops_per_joule = forward_gflops_per_joule + backward_gflops_per_joule
 
+        # Calculate error bars for TFLOPs per joule
+        forward_energy_sem = data.get("forward_energy_sem", 0.0)
+        backward_energy_sem = data.get("backward_energy_sem", 0.0)
+        forward_energy_mean = data.get("forward_energy_mean", 1.0)
+        backward_energy_mean = data.get("backward_energy_mean", 1.0)
+
+        # Calculate relative errors (SEM / mean)
+        forward_rel_error = forward_energy_sem / forward_energy_mean if forward_energy_mean > 0 else 0
+        backward_rel_error = backward_energy_sem / backward_energy_mean if backward_energy_mean > 0 else 0
+
+        # Convert to TFLOPs errors
+        forward_tflops_error = (forward_gflops_per_joule / 1000) * forward_rel_error
+        backward_tflops_error = (backward_gflops_per_joule / 1000) * backward_rel_error
+        total_tflops_error = forward_tflops_error + backward_tflops_error
+
         comparison_data.append({
             "gpu_config": data.get("gpu_config", "Unknown"),
             "precision": data.get("precision", "unknown"),
@@ -75,11 +90,18 @@ def analyze_unified_results():
             "forward_tflops_per_joule": forward_gflops_per_joule / 1000,
             "backward_tflops_per_joule": backward_gflops_per_joule / 1000,
             "total_tflops_per_joule": total_gflops_per_joule / 1000,
+            "forward_tflops_per_joule_error": forward_tflops_error,
+            "backward_tflops_per_joule_error": backward_tflops_error,
+            "total_tflops_per_joule_error": total_tflops_error,
             "is_forward_only": is_forward_only,
             "forward_energy": data.get("forward_energy_mean", 0.0),
             "backward_energy": data.get("backward_energy_mean", 0.0),
+            "forward_energy_error": forward_energy_sem,
+            "backward_energy_error": backward_energy_sem,
             "forward_gpu_time": data.get("forward_gpu_time_mean", 0.0) / 1000,  # Convert to ms
             "backward_gpu_time": data.get("backward_gpu_time_mean", 0.0) / 1000,
+            "forward_gpu_time_error": data.get("forward_gpu_time_sem", 0.0) / 1000,  # Convert to ms
+            "backward_gpu_time_error": data.get("backward_gpu_time_sem", 0.0) / 1000,
         })
 
     df = pd.DataFrame(comparison_data)
@@ -112,8 +134,8 @@ def analyze_unified_results():
     create_unified_plots(df)
 
     # Save detailed results
-    df.to_csv("results_optimized/efficiency_comparison.csv", index=False)
-    print(f"\nResults saved to: results_optimized/efficiency_comparison.csv")
+    df.to_csv("results_optimized/gpu_efficiency_comparison.csv", index=False)
+    print(f"\nResults saved to: results_optimized/gpu_efficiency_comparison.csv")
 
     return df
 
