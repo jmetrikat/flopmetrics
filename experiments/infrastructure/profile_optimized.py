@@ -60,11 +60,10 @@ def load_model(precision="bf16"):
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
         torch_dtype=torch_dtype,
-        device_map="auto",  # Automatic device placement
+        device_map="auto",
         low_cpu_mem_usage=True
     )
 
-    # Enable optimizations
     model = model.eval()
 
     print(f"Model loaded successfully with {precision} precision")
@@ -91,7 +90,6 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config, forward_o
         model, tokenizer, args=eval_args, verbose=True
     )
 
-    # Clear GPU cache before measurement
     torch.cuda.empty_cache()
     gc.collect()
 
@@ -107,7 +105,6 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config, forward_o
             print("Running forward and backward passes (training mode)")
     except Exception as e:
         print(f"Error during evaluation: {e}")
-        # Return a minimal metrics dict to avoid crashes
         return {
             "config_name": config_name,
             "batch_size": config["batch_size"],
@@ -153,17 +150,14 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config, forward_o
     metrics["gflops_per_joule_backward"] = gflops_per_joule_backward
     metrics["gpu_config"] = gpu_config
 
-    # Save individual result immediately
     save_individual_result(metrics, config_name, gpu_config, config.get('precision', 'bf16'))
 
     return metrics
 
 def save_individual_result(metrics, config_name, gpu_config, precision="bf16"):
     """Save individual configuration result to file"""
-    # Ensure results_optimized directory exists
     os.makedirs("results_optimized", exist_ok=True)
 
-    # Create individual result file with precision in name
     individual_path = f"results_optimized/{gpu_config}_{precision}_{MODEL_SHORT_NAME}_{config_name}_result.jsonl"
 
     with open(individual_path, "w", encoding="utf-8") as f:
@@ -179,7 +173,6 @@ def unify_results(gpu_config, precision="bf16"):
         print(f"❌ Results directory '{results_dir}' does not exist")
         return
 
-    # Pattern to match individual result files
     pattern = f"{results_dir}/{gpu_config}_{precision}_{MODEL_SHORT_NAME}_*_result.jsonl"
     individual_files = glob.glob(pattern)
 
@@ -191,7 +184,6 @@ def unify_results(gpu_config, precision="bf16"):
     for file in individual_files:
         print(f"   - {os.path.basename(file)}")
 
-    # Create unified file
     unified_path = f"{results_dir}/{gpu_config}_{precision}_{MODEL_SHORT_NAME}_all_configs_results.jsonl"
 
     with open(unified_path, "w", encoding="utf-8") as unified_file:
