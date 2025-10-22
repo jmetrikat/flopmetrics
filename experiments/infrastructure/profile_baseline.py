@@ -15,7 +15,7 @@ config_name = input("Enter configuration name (e.g., a40_fp16): ").strip()
 if not config_name:
     raise ValueError("Configuration name cannot be empty")
 
-JSONL_PATH = f"results/baseline_{config_name}_{MODEL_SHORT_NAME}_energy_results.jsonl"
+JSONL_PATH = f"results_baseline/{config_name}_{MODEL_SHORT_NAME}_energy_results.jsonl"
 
 def evaluate_model():
     model, tokenizer = load_model()
