@@ -53,9 +53,6 @@ def evaluate_model():
 
 
 def load_model():
-    """
-    Load the model with the specified number of layers.
-    """
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     tokenizer.pad_token = tokenizer.eos_token
     model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.bfloat16)  # when 3b doesn't fit in mem: torch_dtype=torch.bfloat16

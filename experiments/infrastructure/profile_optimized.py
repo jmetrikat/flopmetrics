@@ -44,7 +44,6 @@ def load_model(precision="bf16"):
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     tokenizer.pad_token = tokenizer.eos_token
 
-    # Choose precision based on parameter
     if precision == "fp32":
         torch_dtype = torch.float32
         print("Loading model with FP32 precision")
@@ -70,7 +69,7 @@ def load_model(precision="bf16"):
     return model, tokenizer
 
 def evaluate_config(model, tokenizer, config_name, config, gpu_config, forward_only=False):
-    """Evaluate model with specific configuration"""
+    """Evaluate model configuration"""
     print(f"\n{'='*60}")
     print(f"Evaluating configuration: {config_name}")
     print(f"{'='*60}")
@@ -118,7 +117,6 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config, forward_o
     end_time = time.time()
     print(f"Evaluation completed in {end_time - start_time:.2f} seconds")
 
-    # Calculate efficiency metrics
     energy_forward = metrics["forward_energy_mean"]
     flops_forward = metrics["forward_flops_sum"]
     gflops_per_joule_forward = (flops_forward / energy_forward) / 1e9
@@ -141,7 +139,6 @@ def evaluate_config(model, tokenizer, config_name, config, gpu_config, forward_o
         print(f"Forward - Energy: {energy_forward:.3f}J, FLOPs: {flops_forward/1e9:.1f}G, Efficiency: {gflops_per_joule_forward:.2f} GFLOPs/J")
         print(f"Backward - Energy: {energy_backward:.3f}J, FLOPs: {flops_backward/1e9:.1f}G, Efficiency: {gflops_per_joule_backward:.2f} GFLOPs/J")
 
-    # Add configuration info to results
     metrics["config_name"] = config_name
     metrics["batch_size"] = config["batch_size"]
     metrics["input_length"] = config["input_length"]
@@ -200,7 +197,7 @@ def unify_results(gpu_config, precision="bf16"):
     print(f"\n🎉 Unified results saved to: {unified_path}")
 
 def benchmark_machine(configs_to_run=None, precision="bf16", forward_only=False):
-    """Benchmark all configurations for a specific machine"""
+    """Benchmark configurations for a specific machine"""
     gpu_config = input("Enter GPU configuration name (e.g., a40_fp16, l40_fp32): ").strip()
     if not gpu_config:
         raise ValueError("GPU configuration name cannot be empty")
@@ -210,11 +207,9 @@ def benchmark_machine(configs_to_run=None, precision="bf16", forward_only=False)
     print(f"PRECISION: {precision.upper()}")
     print(f"{'='*80}")
 
-    # Determine which configurations to run
     if configs_to_run is None:
         configs_to_run = list(CONFIGS.keys())
     else:
-        # Validate config names
         invalid_configs = [c for c in configs_to_run if c not in CONFIGS]
         if invalid_configs:
             print(f"Warning: Invalid configuration names: {invalid_configs}")
@@ -222,21 +217,17 @@ def benchmark_machine(configs_to_run=None, precision="bf16", forward_only=False)
 
     print(f"Running configurations: {configs_to_run}")
 
-    # Load model once for all configurations with specified precision
     model, tokenizer = load_model(precision)
 
-    # Evaluate specified configurations
     all_results = {}
     for config_name in configs_to_run:
         config = CONFIGS[config_name].copy()
-        # Override precision with command line argument
         config["precision"] = precision
         try:
             metrics = evaluate_config(model, tokenizer, config_name, config, gpu_config, forward_only)
             all_results[config_name] = metrics
         except Exception as e:
             print(f"Error evaluating {config_name}: {e}")
-            # Create error result
             all_results[config_name] = {
                 "config_name": config_name,
                 "batch_size": config["batch_size"],
@@ -249,7 +240,6 @@ def benchmark_machine(configs_to_run=None, precision="bf16", forward_only=False)
             }
             continue
 
-    # Find best configuration
     best_config = None
     best_efficiency = 0
     for config_name, metrics in all_results.items():
@@ -265,7 +255,6 @@ def benchmark_machine(configs_to_run=None, precision="bf16", forward_only=False)
     print(f"BENCHMARK SUMMARY FOR {gpu_config.upper()}")
     print(f"{'='*80}")
 
-    # Sort results by efficiency
     if forward_only:
         sorted_results = sorted(all_results.items(),
                                key=lambda x: x[1]["gflops_per_joule_forward"],
@@ -291,8 +280,6 @@ def benchmark_machine(configs_to_run=None, precision="bf16", forward_only=False)
         print(f"\n🏆 BEST CONFIGURATION: {best_config.upper()}")
         print(f"   Total Efficiency: {best_efficiency:.2f} GFLOPs/J")
 
-
-    # Save unified results (all configurations in one file for easy comparison)
     os.makedirs("results_optimized", exist_ok=True)
     jsonl_path = f"results_optimized/{gpu_config}_{precision}_{MODEL_SHORT_NAME}_all_configs_results.jsonl"
 
@@ -305,7 +292,7 @@ def benchmark_machine(configs_to_run=None, precision="bf16", forward_only=False)
     return all_results
 
 def main():
-    """Main function with command line argument parsing"""
+    """Main function for command line argument parsing"""
     parser = argparse.ArgumentParser(description="Benchmark model configurations")
     parser.add_argument(
         "--configs",

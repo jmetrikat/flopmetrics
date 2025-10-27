@@ -87,9 +87,7 @@ def run_analysis_for_existing_run(run_subdir, root_dir="results_hyper_surface", 
             for metric in metrics:
                 print(f"Plotting {metric} for n={n_val}")
                 plot_metric_surface_for_fixed_n(processed_dir=processed_dir, plots_dir=plots_dir, metric=metric, n_fixed=n_val)
-                # Also create log-scale version for better small value visibility
                 plot_metric_surface_for_fixed_n_log(processed_dir=processed_dir, plots_dir=plots_dir, metric=metric, n_fixed=n_val)
-                # Create filtered version focusing on larger values
                 plot_metric_surface_for_fixed_n_filtered(processed_dir=processed_dir, plots_dir=plots_dir, metric=metric, n_fixed=n_val)
 
 def run_profile_for_existing_run(run_subdir, n_list, d_list, m_list, root_dir="results_hyper_surface"):
@@ -120,17 +118,14 @@ def profile_and_save_ncu_metrics(n_list, d_list, m_list, result_dir="results_hyp
             print(f"Skipping existing files for n={n}, d={d}, m={m}")
             continue
         try:
-            # Setup FLOPs
             ncu_setup = NCUProfiler()
             ncu_setup.profile_function(construct_toy_network_and_input_for_ncu, {"dim": d, "n_layers": n, "n_tokens": m})
             ncu_setup.result.to_csv(setup_csv, index=True)
 
-            # Forward pass profiling
             ncu_fwd = NCUProfiler()
             ncu_fwd.profile_function(run_toy_network_forward_ncu, {"dim": d, "n_layers": n, "n_tokens": m})
             ncu_fwd.result.to_csv(fwd_csv, index=True)
 
-            # Backward pass profiling
             ncu_bwd = NCUProfiler()
             ncu_bwd.profile_function(run_toy_network_forward_backward_ncu, {"dim": d, "n_layers": n, "n_tokens": m})
             ncu_bwd.result.to_csv(bwd_csv, index=True)
@@ -153,16 +148,13 @@ def analyze_hyper_surface_metrics(n_list, d_list, m_list, raw_dir="results_hyper
         if not all(os.path.exists(f) for f in [fwd_csv, bwd_csv, setup_csv]):
             continue
 
-        # Load CSVs
         df_setup = pd.read_csv(setup_csv)
         df_fwd = pd.read_csv(fwd_csv)
         df_bwd = pd.read_csv(bwd_csv)
 
-        # Drop setup rows from forward
         max_setup_index = df_setup.index.max()
         df_fwd_filtered = df_fwd[df_fwd.index > max_setup_index].copy()
 
-        # Drop setup and forward rows from backward
         max_fwd_index = df_fwd.index.max()
         df_bwd_filtered = df_bwd[df_bwd.index > max_fwd_index].copy()
 
@@ -172,20 +164,16 @@ def analyze_hyper_surface_metrics(n_list, d_list, m_list, raw_dir="results_hyper
                 (df["Kernel Name"].str.contains(kernel_pattern, case=False, na=False))
             ]["Metric Value"].sum()
 
-        # Forward metrics by component
-        # Forward GEMM metrics
         ffma_gemm_fwd = sum_metric_by_kernel(df_fwd_filtered, "ffma", "sgemm")
         fadd_gemm_fwd = sum_metric_by_kernel(df_fwd_filtered, "fadd", "sgemm")
         fmul_gemm_fwd = sum_metric_by_kernel(df_fwd_filtered, "fmul", "sgemm")
         ncu_total_flops_gemm_fwd = ffma_gemm_fwd * 2 + fadd_gemm_fwd + fmul_gemm_fwd
 
-        # Forward KSplit metrics
         ffma_ksplit_fwd = sum_metric_by_kernel(df_fwd_filtered, "ffma", "splitK|reduce_kernel")
         fadd_ksplit_fwd = sum_metric_by_kernel(df_fwd_filtered, "fadd", "splitK|reduce_kernel")
         fmul_ksplit_fwd = sum_metric_by_kernel(df_fwd_filtered, "fmul", "splitK|reduce_kernel")
         ncu_total_flops_ksplit_fwd = ffma_ksplit_fwd * 2 + fadd_ksplit_fwd + fmul_ksplit_fwd
 
-        # Forward Activation metrics
         ffma_activation_fwd = sum_metric_by_kernel(df_fwd_filtered, "ffma", "elementwise")
         fadd_activation_fwd = sum_metric_by_kernel(df_fwd_filtered, "fadd", "elementwise")
         fmul_activation_fwd = sum_metric_by_kernel(df_fwd_filtered, "fmul", "elementwise")
@@ -193,20 +181,16 @@ def analyze_hyper_surface_metrics(n_list, d_list, m_list, raw_dir="results_hyper
 
         ncu_total_flops_fwd = ncu_total_flops_gemm_fwd + ncu_total_flops_ksplit_fwd + ncu_total_flops_activation_fwd
 
-        # Backward metrics by component
-        # Backward GEMM metrics
         ffma_gemm_bwd = sum_metric_by_kernel(df_bwd_filtered, "ffma", "sgemm")
         fadd_gemm_bwd = sum_metric_by_kernel(df_bwd_filtered, "fadd", "sgemm")
         fmul_gemm_bwd = sum_metric_by_kernel(df_bwd_filtered, "fmul", "sgemm")
         ncu_total_flops_gemm_bwd = ffma_gemm_bwd * 2 + fadd_gemm_bwd + fmul_gemm_bwd
 
-        # Backward KSplit metrics
         ffma_ksplit_bwd = sum_metric_by_kernel(df_bwd_filtered, "ffma", "splitK|reduce_kernel")
         fadd_ksplit_bwd = sum_metric_by_kernel(df_bwd_filtered, "fadd", "splitK|reduce_kernel")
         fmul_ksplit_bwd = sum_metric_by_kernel(df_bwd_filtered, "fmul", "splitK|reduce_kernel")
         ncu_total_flops_ksplit_bwd = ffma_ksplit_bwd * 2 + fadd_ksplit_bwd + fmul_ksplit_bwd
 
-        # Backward Activation metrics
         ffma_activation_bwd = sum_metric_by_kernel(df_bwd_filtered, "ffma", "elementwise")
         fadd_activation_bwd = sum_metric_by_kernel(df_bwd_filtered, "fadd", "elementwise")
         fmul_activation_bwd = sum_metric_by_kernel(df_bwd_filtered, "fmul", "elementwise")
@@ -214,7 +198,6 @@ def analyze_hyper_surface_metrics(n_list, d_list, m_list, raw_dir="results_hyper
 
         ncu_total_flops_bwd = ncu_total_flops_gemm_bwd + ncu_total_flops_ksplit_bwd + ncu_total_flops_activation_bwd
 
-        # Theoretical FLOPs
         theoretical_gemm_flops = n * 2 * d * d * m
         theoretical_activation_flops = n * d * m
         theoretical_total_flops = theoretical_gemm_flops + theoretical_activation_flops
@@ -223,22 +206,14 @@ def analyze_hyper_surface_metrics(n_list, d_list, m_list, raw_dir="results_hyper
         theoretical_activation_flops_bwd = (n - 1) * 2 * d * m + d * m
         theoretical_total_flops_bwd = theoretical_gemm_flops_bwd + theoretical_activation_flops_bwd
 
-        # Overhead metrics
-        # Forward pass overheads
         omega_fwd = ncu_total_flops_gemm_fwd / theoretical_gemm_flops - 1 if theoretical_gemm_flops else float('nan')
-        # rho_fwd as absolute FLOPs per D*M operation (not overhead factor)
         rho_fwd = ncu_total_flops_ksplit_fwd / (n * d * m) if n * d * m != 0 else float('nan')
-        # kappa_fwd as overhead factor like epsilon
         kappa_fwd = ncu_total_flops_activation_fwd / theoretical_activation_flops - 1 if theoretical_activation_flops else float('nan')
 
-        # Backward pass overheads
         omega_bwd = ncu_total_flops_gemm_bwd / theoretical_gemm_flops_bwd - 1 if theoretical_gemm_flops_bwd else float('nan')
-        # rho_bwd as absolute FLOPs per D*M operation (not overhead factor)
         rho_bwd = ncu_total_flops_ksplit_bwd / ((2 * n - 1) * d * m) if ((2 * n - 1) * d * m) != 0 else float('nan')
-        # kappa_bwd as overhead factor like epsilon
         kappa_bwd = ncu_total_flops_activation_bwd / theoretical_activation_flops_bwd - 1 if theoretical_activation_flops_bwd else float('nan')
 
-        # Percentage differences (total), expressed in percent
         percent_diff_fwd = ((ncu_total_flops_fwd - theoretical_total_flops) / theoretical_total_flops * 100.0) if theoretical_total_flops else float('nan')
         percent_diff_bwd = ((ncu_total_flops_bwd - theoretical_total_flops_bwd) / theoretical_total_flops_bwd * 100.0) if theoretical_total_flops_bwd else float('nan')
 
@@ -312,8 +287,6 @@ def plot_metric_surface_for_fixed_n_log(processed_dir="results_hyper_surface/pro
     y = surface.index.values    # d
     z = surface.values
 
-    # Apply log transformation to z values for better small value visibility
-    # Add small epsilon to avoid log(0)
     z_log = np.log10(z + 1e-10)
 
     fig = go.Figure(data=[go.Surface(z=z_log, x=x, y=y, colorscale='Viridis')])
@@ -340,7 +313,6 @@ def plot_metric_surface_for_fixed_n_filtered(processed_dir="results_hyper_surfac
     summary_path = os.path.join(processed_dir, summary_csv)
     df = pd.read_csv(summary_path)
 
-    # If n_fixed is None, use the largest available n
     if n_fixed is None:
         n_fixed = df["n"].max()
 
@@ -349,15 +321,14 @@ def plot_metric_surface_for_fixed_n_filtered(processed_dir="results_hyper_surfac
         print(f"No data for n={n_fixed}")
         return
 
-    # Filter data to focus on larger values
     df_filtered = df[(df["d"] >= d_min) & (df["m"] >= m_min)]
     if df_filtered.empty:
         print(f"No data for n={n_fixed} with d>={d_min} and m>={m_min}")
         return
 
     surface = df_filtered.pivot(index="d", columns="m", values=metric)
-    x = surface.columns.values  # m
-    y = surface.index.values    # d
+    x = surface.columns.values
+    y = surface.index.values
     z = surface.values
 
     fig = go.Figure(data=[go.Surface(z=z, x=x, y=y, colorscale='Viridis')])
@@ -375,29 +346,24 @@ def plot_metric_surface_for_fixed_n_filtered(processed_dir="results_hyper_surfac
     print(f"Saved filtered plots to {plot_path_html}")
 
 def main():
-    n_list = [2, 4, 8, 16, 32]              # number of layers
-    d_list = list(range(128, 2049, 128))    # hidden dimension: start=128, stop=2048, step=128
-    m_list = list(range(16, 257, 16))       # sequence length: start=16, stop=256, step=16
+    n_list = [2, 4, 8, 16, 32]
+    d_list = list(range(128, 2049, 128))
+    m_list = list(range(16, 257, 16))
     run_dir, raw_dir, processed_dir, plots_dir = _prepare_run_dirs(n_list, d_list, m_list, root_dir="results_hyper_surface")
 
-    # Step 1: Profile and save raw metrics
     print(f"Starting hyper-surface profiling...\nRun directory: {run_dir}\nRaw: {raw_dir}\nProcessed: {processed_dir}\nPlots: {plots_dir}")
     profile_and_save_ncu_metrics(n_list, d_list, m_list, result_dir=raw_dir)
 
-    # Step 2: Analyze and save summary
     print("Analyzing hyper-surface metrics...")
     analyze_hyper_surface_metrics(n_list, d_list, m_list, raw_dir=raw_dir, processed_dir=processed_dir)
 
-    # Step 3: Plot all metrics for each n
     print("Plotting hyper-surface metrics...")
     metrics = ["omega_fwd", "rho_fwd", "kappa_fwd", "omega_bwd", "rho_bwd", "kappa_bwd"]
     for n_val in n_list:
         for metric in metrics:
             print(f"Plotting {metric} for n={n_val}")
             plot_metric_surface_for_fixed_n(processed_dir=processed_dir, plots_dir=plots_dir, metric=metric, n_fixed=n_val)
-            # Also create log-scale version for better small value visibility
             plot_metric_surface_for_fixed_n_log(processed_dir=processed_dir, plots_dir=plots_dir, metric=metric, n_fixed=n_val)
-            # Create filtered version focusing on larger values
             plot_metric_surface_for_fixed_n_filtered(processed_dir=processed_dir, plots_dir=plots_dir, metric=metric, n_fixed=n_val)
 
 
