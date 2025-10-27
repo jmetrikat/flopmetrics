@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "metriwatt"
+name = "flopmetrics"
 version = "0.1.0"
-description = "Infrastructures and Metrics for Assessing Energy-Efficient Large Language Model Training."
+description = "FLOPs and energy profiling toolkit for efficient LLM training and evaluation."
 authors = ["Jannis Metrikat <120120832+jmetrikat@users.noreply.github.com>"]
 readme = "README.md"
 

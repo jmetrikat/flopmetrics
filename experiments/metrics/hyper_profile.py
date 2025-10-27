@@ -6,8 +6,8 @@ import pandas as pd
 import numpy as np
 import re
 import plotly.graph_objects as go
-from metriwatt.ncu import NCUProfiler
-from metriwatt.network import run_toy_network_forward_ncu, run_toy_network_forward_backward_ncu, construct_toy_network_and_input_for_ncu
+from flopmetrics.ncu import NCUProfiler
+from flopmetrics.network import run_toy_network_forward_ncu, run_toy_network_forward_backward_ncu, construct_toy_network_and_input_for_ncu
 
 def _format_range_label(values):
     """Return a min-max compact label for a list of ints, e.g., [2,4,8] -> "2-8"."""

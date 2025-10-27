@@ -19,9 +19,9 @@ from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from transformers import DataCollatorForLanguageModeling
 
-from metriwatt.multiprocessing import start_separate_process
-from metriwatt.profiler import Profiler, NvidiaProfiler, TorchProfiler as TorchProfiler
-from metriwatt.model import load_model
+from flopmetrics.multiprocessing import start_separate_process
+from flopmetrics.profiler import Profiler, NvidiaProfiler, TorchProfiler as TorchProfiler
+from flopmetrics.model import load_model
 
 
 class ModelEvaluator:

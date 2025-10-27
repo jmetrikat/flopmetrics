@@ -2,7 +2,7 @@ import json
 import torch
 import torch.nn as nn
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from metriwatt.evaluation import ModelEnergyEvaluator, EnergyEvaluationArguments
+from flopmetrics.evaluation import ModelEnergyEvaluator, EnergyEvaluationArguments
 import time
 import gc
 import os

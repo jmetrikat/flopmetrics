@@ -7,7 +7,7 @@ import io
 import pandas as pd
 from tqdm import tqdm
 
-from metriwatt.profiler import TorchProfiler
+from flopmetrics.profiler import TorchProfiler
 
 
 class NCUProfiler:

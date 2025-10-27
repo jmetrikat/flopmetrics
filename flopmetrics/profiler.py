@@ -12,7 +12,7 @@ from plotly.subplots import make_subplots
 from torch.autograd.profiler_util import EventList, FunctionEvent
 from torch.profiler import ProfilerActivity, profile
 
-from metriwatt.multiprocessing import (
+from flopmetrics.multiprocessing import (
     FileCacheResultHandler,
     MPQueueResultHandler,
     ResultHandler,

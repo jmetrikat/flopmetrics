@@ -1,7 +1,7 @@
 import json
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from metriwatt.evaluation import ModelEnergyEvaluator, EnergyEvaluationArguments
+from flopmetrics.evaluation import ModelEnergyEvaluator, EnergyEvaluationArguments
 
 MODEL_NAME = "meta-llama/Llama-3.2-1B-Instruct"
 MODEL_SHORT_NAME = "llama3.2_1b"
