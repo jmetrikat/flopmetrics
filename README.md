@@ -24,8 +24,8 @@ $(poetry env activate)
 
 3. Explore metrics experiments and power profiling:
 
-- See `experiments/metrics/README.md` for metrics workflows and notebooks.
-- See `experiments/architecture/README.md` for energy profiling instructions.
+- See [`experiments/metrics/README.md`](experiments/metrics/README.md) for metrics workflows and notebooks.
+- See [`experiments/architecture/README.md`](experiments/architecture/README.md) for energy profiling instructions.
 
 
 ## Reproducibility
