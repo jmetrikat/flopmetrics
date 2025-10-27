@@ -25,7 +25,7 @@ python profile_optimized.py --precision fp16 --forward-only
 python profile_optimized.py --precision fp16 --unify
 ```
 
-Outputs are written under `experiments/infrastructure/results_optimized/`:
+Outputs are written under `experiments/architecture/results_optimized/`:
 
 - `<gpu>_<precision>_llama3.2_1b_<config>_result.jsonl` (per config)
 - `<gpu>_<precision>_llama3.2_1b_all_configs_results.jsonl` (unified)

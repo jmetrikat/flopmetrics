@@ -6,7 +6,7 @@ This repository accompanies my Bachelor's thesis: "Assessing Energy Efficiency o
 
 - **`flopmetrics/`**: Core library for profiling, metrics, model/network definitions, and evaluation helpers.
 - **`experiments/metrics/`**: FLOP counting validation: comparing analytical, PyTorch profiler, and NCU measurements on MLP networks with hyper-parameter surface analyses.
-- **`experiments/infrastructure/`**: GPU efficiency benchmarking: profiling Llama models across GPU architectures (V100, A40, L40, A100, H100) to measure energy consumption and compute efficiency.
+- **`experiments/architecture/`**: GPU efficiency benchmarking: profiling Llama models across GPU architectures (V100, A40, L40, A100, H100) to measure energy consumption and compute efficiency.
 
 ## Quickstart
 
@@ -25,4 +25,4 @@ $(poetry env activate)
 3. Explore metrics experiments and power profiling:
 
 - See `experiments/metrics/README.md` for metrics workflows and notebooks.
-- See `experiments/infrastructure/README.md` for energy profiling instructions.
+- See `experiments/architecture/README.md` for energy profiling instructions.
