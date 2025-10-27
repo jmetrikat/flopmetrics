@@ -5,6 +5,7 @@ from datetime import datetime
 import pandas as pd
 import numpy as np
 import re
+import argparse
 import plotly.graph_objects as go
 from flopmetrics.ncu import NCUProfiler
 from flopmetrics.network import run_mlp_forward_ncu, run_mlp_forward_backward_ncu, construct_mlp_and_input_for_ncu
@@ -19,6 +20,7 @@ def _format_range_label(values):
     except Exception:
         return ""
     return f"{vmin}-{vmax}"
+
 
 def _prepare_run_dirs(n_list, d_list, m_list, root_dir="results_hyper_surface"):
     """Create a timestamped run directory with raw/processed/plots subfolders.
@@ -37,6 +39,7 @@ def _prepare_run_dirs(n_list, d_list, m_list, root_dir="results_hyper_surface"):
     os.makedirs(processed_dir, exist_ok=True)
     os.makedirs(plots_dir, exist_ok=True)
     return run_dir, raw_dir, processed_dir, plots_dir
+
 
 def _extract_param_sets_from_raw(raw_dir):
     """Parse CSV filenames in raw_dir to infer unique sorted n, d, m lists.
@@ -57,6 +60,7 @@ def _extract_param_sets_from_raw(raw_dir):
     except FileNotFoundError:
         pass
     return sorted(n_values), sorted(d_values), sorted(m_values)
+
 
 def run_analysis_for_existing_run(run_subdir, root_dir="results_hyper_surface", do_plots=True):
     """Run only analysis and plotting for an existing run directory.
@@ -90,6 +94,7 @@ def run_analysis_for_existing_run(run_subdir, root_dir="results_hyper_surface", 
                 plot_metric_surface_for_fixed_n_log(processed_dir=processed_dir, plots_dir=plots_dir, metric=metric, n_fixed=n_val)
                 plot_metric_surface_for_fixed_n_filtered(processed_dir=processed_dir, plots_dir=plots_dir, metric=metric, n_fixed=n_val)
 
+
 def run_profile_for_existing_run(run_subdir, n_list, d_list, m_list, root_dir="results_hyper_surface"):
     """Continue profiling into an existing run's raw directory.
 
@@ -100,6 +105,7 @@ def run_profile_for_existing_run(run_subdir, n_list, d_list, m_list, root_dir="r
     os.makedirs(raw_dir, exist_ok=True)
     print(f"Resuming profiling into: {raw_dir}")
     profile_and_save_ncu_metrics(n_list, d_list, m_list, result_dir=raw_dir)
+
 
 def profile_and_save_ncu_metrics(n_list, d_list, m_list, result_dir="results_hyper_surface/raw"):
     """
@@ -133,6 +139,7 @@ def profile_and_save_ncu_metrics(n_list, d_list, m_list, result_dir="results_hyp
             print(f"Saved: {fwd_csv}, {bwd_csv}, {setup_csv}")
         except Exception as e:
             print(f"Failed for n={n}, d={d}, m={m}: {e}")
+
 
 def analyze_hyper_surface_metrics(n_list, d_list, m_list, raw_dir="results_hyper_surface/raw", processed_dir="results_hyper_surface/processed", summary_csv="hyper_surface_summary.csv"):
     """
@@ -237,6 +244,7 @@ def analyze_hyper_surface_metrics(n_list, d_list, m_list, raw_dir="results_hyper
     df_summary.to_csv(summary_path, index=False)
     print(f"Saved summary to {summary_path}")
 
+
 def plot_metric_surface_for_fixed_n(processed_dir="results_hyper_surface/processed", plots_dir="results_hyper_surface/plots", summary_csv="hyper_surface_summary.csv",
                                     metric="omega_fwd", n_fixed=4):
     """
@@ -268,6 +276,7 @@ def plot_metric_surface_for_fixed_n(processed_dir="results_hyper_surface/process
     plot_path_html = os.path.join(plots_dir, f"{metric}_n{n_fixed}.html")
     fig.write_html(plot_path_html)
     print(f"Saved plots to {plot_path_html}")
+
 
 def plot_metric_surface_for_fixed_n_log(processed_dir="results_hyper_surface/processed", plots_dir="results_hyper_surface/plots", summary_csv="hyper_surface_summary.csv",
                                         metric="omega_fwd", n_fixed=4):
@@ -302,6 +311,7 @@ def plot_metric_surface_for_fixed_n_log(processed_dir="results_hyper_surface/pro
     plot_path_html = os.path.join(plots_dir, f"{metric}_n{n_fixed}_log.html")
     fig.write_html(plot_path_html)
     print(f"Saved log-scale plots to {plot_path_html}")
+
 
 def plot_metric_surface_for_fixed_n_filtered(processed_dir="results_hyper_surface/processed", plots_dir="results_hyper_surface/plots", summary_csv="hyper_surface_summary.csv",
                                            metric="omega_fwd", n_fixed=None, d_min=512, m_min=128):
@@ -345,6 +355,7 @@ def plot_metric_surface_for_fixed_n_filtered(processed_dir="results_hyper_surfac
     fig.write_html(plot_path_html)
     print(f"Saved filtered plots to {plot_path_html}")
 
+
 def main():
     n_list = [2, 4, 8, 16, 32]
     d_list = list(range(128, 2049, 128))
@@ -368,14 +379,62 @@ def main():
 
 
 if __name__ == "__main__":
-    # OPTION 1: Start new hypersurface run from scratch
-    # main()
+    parser = argparse.ArgumentParser(description="Hyper-surface profiling tool for MLP network")
 
-    # OPTION 2: Resume an interrupted profiling run
-    # run_profile_for_existing_run("20250922-120007_n2-32_d128-2048_m16-256", n_list, d_list, m_list)
+    subparsers = parser.add_subparsers(dest="mode", help="Operation mode")
 
-    # OPTION 3: Analysis and plots only (for existing completed runs)
-    run_analysis_for_existing_run("20250922-120007_n2-32_d128-2048_m16-256")
+    # New run mode
+    new_parser = subparsers.add_parser("new", help="Start new profiling run from scratch")
+    new_parser.add_argument("--n", type=int, nargs="+", default=[2, 4, 8, 16, 32],
+                          help="Number of layers (default: 2 4 8 16 32)")
+    new_parser.add_argument("--d", type=int, nargs="+", default=list(range(128, 2049, 128)),
+                          help="Hidden dimensions (default: 128 to 2048 step 128)")
+    new_parser.add_argument("--m", type=int, nargs="+", default=list(range(16, 257, 16)),
+                          help="Sequence lengths (default: 16 to 256 step 16)")
+    new_parser.add_argument("--no-plots", action="store_true", help="Skip plot generation")
 
-    # To get data from remote machine to your local machine:
-    # rsync -avz --progress jannis.metrikat@bp2024rh1.cloud.sci.hpi.de:/home/jannis.metrikat/lora-bp/repo/experiments/metrics/results_hyper_surface/20250922-120007_n2-32_d128-2048_m16-256 /Users/jmetrikat/Library/CloudStorage/OneDrive-UniversitätPotsdam/hpi/bachelor/25-ss/ba/research
+    # Resume profiling mode
+    resume_parser = subparsers.add_parser("resume", help="Resume an interrupted profiling run")
+    resume_parser.add_argument("run_dir", help="Run directory to resume (e.g., 20250922-120007_n2-32_d128-2048_m16-256)")
+    resume_parser.add_argument("--n", type=int, nargs="+", default=[2, 4, 8, 16, 32],
+                              help="Number of layers (default: 2 4 8 16 32)")
+    resume_parser.add_argument("--d", type=int, nargs="+", default=list(range(128, 2049, 128)),
+                              help="Hidden dimensions (default: 128 to 2048 step 128)")
+    resume_parser.add_argument("--m", type=int, nargs="+", default=list(range(16, 257, 16)),
+                              help="Sequence lengths (default: 16 to 256 step 16)")
+
+    # Analysis only mode
+    analyze_parser = subparsers.add_parser("analyze", help="Analyze and plot an existing run")
+    analyze_parser.add_argument("run_dir", help="Run directory to analyze (e.g., 20250922-120007_n2-32_d128-2048_m16-256)")
+    analyze_parser.add_argument("--no-plots", action="store_true", help="Skip plot generation")
+
+    args = parser.parse_args()
+
+    if args.mode == "new":
+        print(f"Starting new profiling run with n={args.n}, d={args.d}, m={args.m}")
+        run_dir = _prepare_run_dirs(args.n, args.d, args.m, root_dir="results_hyper_surface")
+        print(f"Run directory: {run_dir[0]}")
+        print("Profiling...")
+        profile_and_save_ncu_metrics(args.n, args.d, args.m, result_dir=run_dir[1])
+        print("Analyzing...")
+        analyze_hyper_surface_metrics(args.n, args.d, args.m, raw_dir=run_dir[1], processed_dir=run_dir[2])
+        if not getattr(args, 'no_plots', False):
+            print("Plotting...")
+            metrics = ["omega_fwd", "rho_fwd", "kappa_fwd", "omega_bwd", "rho_bwd", "kappa_bwd", "percent_diff_fwd", "percent_diff_bwd"]
+            for n_val in args.n:
+                for metric in metrics:
+                    print(f"Plotting {metric} for n={n_val}")
+                    plot_metric_surface_for_fixed_n(processed_dir=run_dir[2], plots_dir=run_dir[3], metric=metric, n_fixed=n_val)
+                    plot_metric_surface_for_fixed_n_log(processed_dir=run_dir[2], plots_dir=run_dir[3], metric=metric, n_fixed=n_val)
+                    plot_metric_surface_for_fixed_n_filtered(processed_dir=run_dir[2], plots_dir=run_dir[3], metric=metric, n_fixed=n_val)
+
+    elif args.mode == "resume":
+        print(f"Resuming profiling for run: {args.run_dir}")
+        run_profile_for_existing_run(args.run_dir, args.n, args.d, args.m)
+
+    elif args.mode == "analyze":
+        print(f"Analyzing run: {args.run_dir}")
+        run_analysis_for_existing_run(args.run_dir, do_plots=not args.no_plots)
+
+    else:
+        parser.print_help()
