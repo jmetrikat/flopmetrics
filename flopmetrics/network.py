@@ -30,7 +30,7 @@ class SimpleLinear(nn.Module):
         H = nn.functional.sigmoid(Z)
         return H
 
-class ToyNetwork(nn.Module):
+class MLP(nn.Module):
     """
     MLP network consisting of multiple linear layers.
     """
@@ -43,17 +43,17 @@ class ToyNetwork(nn.Module):
             x = layer(x)
         return x
 
-def run_toy_network_forward_ncu(dim, n_layers, n_tokens):
-    net = ToyNetwork(n_layers=n_layers, dim=dim).to('cuda')
+def run_mlp_forward_ncu(dim, n_layers, n_tokens):
+    net = MLP(n_layers=n_layers, dim=dim).to('cuda')
     x = torch.randn(dim, n_tokens, device='cuda')
     _ = net(x)
 
-def run_toy_network_forward_backward_ncu(dim, n_layers, n_tokens):
-    net = ToyNetwork(n_layers=n_layers, dim=dim).to('cuda')
+def run_mlp_forward_backward_ncu(dim, n_layers, n_tokens):
+    net = MLP(n_layers=n_layers, dim=dim).to('cuda')
     x = torch.randn(dim, n_tokens, device='cuda')
     y = net(x)
     y.sum().backward()
 
-def construct_toy_network_and_input_for_ncu(dim, n_layers, n_tokens):
-    _ = ToyNetwork(n_layers=n_layers, dim=dim).to('cuda')
+def construct_mlp_and_input_for_ncu(dim, n_layers, n_tokens):
+    _ = MLP(n_layers=n_layers, dim=dim).to('cuda')
     _ = torch.randn(dim, n_tokens, device='cuda')

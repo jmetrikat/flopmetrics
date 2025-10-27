@@ -7,7 +7,7 @@ import numpy as np
 import re
 import plotly.graph_objects as go
 from flopmetrics.ncu import NCUProfiler
-from flopmetrics.network import run_toy_network_forward_ncu, run_toy_network_forward_backward_ncu, construct_toy_network_and_input_for_ncu
+from flopmetrics.network import run_mlp_forward_ncu, run_mlp_forward_backward_ncu, construct_mlp_and_input_for_ncu
 
 def _format_range_label(values):
     """Return a min-max compact label for a list of ints, e.g., [2,4,8] -> "2-8"."""
@@ -119,15 +119,15 @@ def profile_and_save_ncu_metrics(n_list, d_list, m_list, result_dir="results_hyp
             continue
         try:
             ncu_setup = NCUProfiler()
-            ncu_setup.profile_function(construct_toy_network_and_input_for_ncu, {"dim": d, "n_layers": n, "n_tokens": m})
+            ncu_setup.profile_function(construct_mlp_and_input_for_ncu, {"dim": d, "n_layers": n, "n_tokens": m})
             ncu_setup.result.to_csv(setup_csv, index=True)
 
             ncu_fwd = NCUProfiler()
-            ncu_fwd.profile_function(run_toy_network_forward_ncu, {"dim": d, "n_layers": n, "n_tokens": m})
+            ncu_fwd.profile_function(run_mlp_forward_ncu, {"dim": d, "n_layers": n, "n_tokens": m})
             ncu_fwd.result.to_csv(fwd_csv, index=True)
 
             ncu_bwd = NCUProfiler()
-            ncu_bwd.profile_function(run_toy_network_forward_backward_ncu, {"dim": d, "n_layers": n, "n_tokens": m})
+            ncu_bwd.profile_function(run_mlp_forward_backward_ncu, {"dim": d, "n_layers": n, "n_tokens": m})
             ncu_bwd.result.to_csv(bwd_csv, index=True)
 
             print(f"Saved: {fwd_csv}, {bwd_csv}, {setup_csv}")
@@ -378,4 +378,4 @@ if __name__ == "__main__":
     run_analysis_for_existing_run("20250922-120007_n2-32_d128-2048_m16-256")
 
     # To get data from remote machine to your local machine:
-    # rsync -avz --progress jannis.metrikat@bp2024rh1.cloud.sci.hpi.de:/home/jannis.metrikat/lora-bp/repo/experiments/toy_network/results_hyper_surface/20250922-120007_n2-32_d128-2048_m16-256 /Users/jmetrikat/Library/CloudStorage/OneDrive-UniversitätPotsdam/hpi/bachelor/25-ss/ba/research
+    # rsync -avz --progress jannis.metrikat@bp2024rh1.cloud.sci.hpi.de:/home/jannis.metrikat/lora-bp/repo/experiments/metrics/results_hyper_surface/20250922-120007_n2-32_d128-2048_m16-256 /Users/jmetrikat/Library/CloudStorage/OneDrive-UniversitätPotsdam/hpi/bachelor/25-ss/ba/research
