@@ -9,13 +9,15 @@ def load_model(
     model_name: str, tokenizer_name: str = None, device: str = "cuda"
 ) -> Tuple[AutoModelForCausalLM, AutoTokenizer]:
     """
-    Load a base model from Hugging Face's model hub.
+    Load a model from Hugging Face's model hub.
+
     Args:
-        model_name (str): The name of the model to load.
-        tokenizer_name (str): The name of the tokenizer to load.
-        device (str): The device to load the model on (default: "cuda").
+        model_name: The name of the model to load.
+        tokenizer_name: The name of the tokenizer to load. If None, uses model_name.
+        device: The device to load the model on.
+
     Returns:
-        Tuple[AutoModelForCausalLM, AutoTokenizer]: The loaded model and tokenizer.
+        The loaded model and tokenizer.
     """
     if os.path.isdir(model_name) and os.path.isfile(os.path.join(model_name, "adapter.pth")):
         model = AutoModelForCausalLM.from_pretrained(

@@ -26,6 +26,15 @@ class SimpleLinear(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through the linear layer with sigmoid activation.
+
+        Args:
+            x: Input tensor.
+
+        Returns:
+            Output tensor after linear transformation and sigmoid.
+        """
         Z = self.W @ x
         H = nn.functional.sigmoid(Z)
         return H
@@ -39,21 +48,54 @@ class MLP(nn.Module):
         self.layers = nn.ModuleList([SimpleLinear(dim, dim, device=torch.device('cuda')) for _ in range(n_layers)])
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through all MLP layers.
+
+        Args:
+            x: Input tensor.
+
+        Returns:
+            Output tensor after passing through all layers.
+        """
         for layer in self.layers:
             x = layer(x)
         return x
 
 def run_mlp_forward_ncu(dim, n_layers, n_tokens):
+    """
+    Run MLP forward pass for NCU profiling.
+
+    Args:
+        dim: Hidden dimension.
+        n_layers: Number of layers.
+        n_tokens: Sequence length.
+    """
     net = MLP(n_layers=n_layers, dim=dim).to('cuda')
     x = torch.randn(dim, n_tokens, device='cuda')
     _ = net(x)
 
 def run_mlp_forward_backward_ncu(dim, n_layers, n_tokens):
+    """
+    Run MLP forward and backward pass for NCU profiling.
+
+    Args:
+        dim: Hidden dimension.
+        n_layers: Number of layers.
+        n_tokens: Sequence length.
+    """
     net = MLP(n_layers=n_layers, dim=dim).to('cuda')
     x = torch.randn(dim, n_tokens, device='cuda')
     y = net(x)
     y.sum().backward()
 
 def construct_mlp_and_input_for_ncu(dim, n_layers, n_tokens):
+    """
+    Construct MLP and input for NCU profiling.
+
+    Args:
+        dim: Hidden dimension.
+        n_layers: Number of layers.
+        n_tokens: Sequence length.
+    """
     _ = MLP(n_layers=n_layers, dim=dim).to('cuda')
     _ = torch.randn(dim, n_tokens, device='cuda')

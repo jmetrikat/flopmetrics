@@ -36,11 +36,13 @@ class NCUProfiler:
 
     def profile(self, executable: str) -> str:
         """
-        Profiles the executable with ncu
+        Profile an executable with NCU.
+
         Args:
-            executable: str, executable to profile
+            executable: Executable to profile.
+
         Returns:
-            str: function stdout
+            Function stdout.
         """
         command = f"{self.ncu_executable} --csv --metrics {','.join(self.metrics)} {executable}"
         result = subprocess.run(command, capture_output=True, shell=True)
@@ -60,15 +62,14 @@ class NCUProfiler:
 
     def profile_function(self, function: Callable, arguments: dict) -> str:
         """
-        Runs a python function and profiles it with ncu. The function is not run directly but through a python importing its module and calling the function then passing the arguments.
-        Args:
-            function: Callable, function to run
-            arguments: dict, arguments to pass to the function
-        Returns:
-            str: function stdout
+        Profile a Python function with NCU.
 
-        Example:
-            profiler.profile_function("lora_bp.ncu.atoms", "run_mm", {"size": 1000})
+        Args:
+            function: Function to profile.
+            arguments: Arguments to pass to the function.
+
+        Returns:
+            Function stdout.
         """
         module = str(function.__module__)
         function = str(function.__name__)
@@ -89,11 +90,13 @@ class NCUProfiler:
 
     def get_total_flops(self, precision="single"):
         """
-        Calculates the flop count from instruction counts
+        Calculate FLOPs from instruction counts.
+
         Args:
-            precision: str, "single", "half" or "double"
+            precision: "single", "half" or "double".
+
         Returns:
-            int: flop count calculated from instruction counts: mul + add + 2 * fma
+            FLOP count: mul + add + 2 * fma
         """
         assert (
             self.result is not None
@@ -133,13 +136,15 @@ class NCUProfiler:
 
 def flops_comparison(function: Callable, args: dict, verbose: bool = False):
     """
-    Compares the actual FLOPs with the theoretical FLOPs for a given function and arguments
+    Compare actual FLOPs with theoretical FLOPs for a function.
+
     Args:
-        function: Callable, function to run
-        args: dict, arguments for the function
-        verbose: bool, print progress
+        function: Function to run.
+        args: Arguments for the function.
+        verbose: Print progress.
+
     Returns:
-        int, int: actual FLOPs, theoretical FLOPs
+        Tuple of (actual FLOPs, theoretical FLOPs, actual metadata, theoretical metadata).
     """
     ncu = NCUProfiler()
     if verbose:
@@ -162,14 +167,16 @@ def scaling_flops_comparison(
     range: Iterable, function: Callable, args_func: Callable, verbose: bool = False
 ):
     """
-    Iterates over a range of values and compares the actual FLOPs with the theoretical FLOPs for a given function and arguments
+    Compare FLOPs across a range of values.
+
     Args:
-        range: Iterable, range of values to iterate over
-        function: Callable, function to run
-        args_func: Callable, function to generate arguments for the function, receives an element from the range and returns a dict of arguments for the function
-        verbose: bool, print progress
+        range: Range of values to iterate over.
+        function: Function to run.
+        args_func: Function to generate arguments, receives element from range and returns dict.
+        verbose: Print progress.
+
     Returns:
-        pd.DataFrame: DataFrame with columns "actual" and "theoretical" and index of the range.
+        DataFrame with "actual" and "theoretical" columns.
     """
     actual, theoretical = [], []
     actual_metadata, theoretical_metadata = [], []

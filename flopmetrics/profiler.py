@@ -27,23 +27,23 @@ class Profiler:
         self.record_step("__init__")
 
     def record_step(self, name: str) -> None:
-        """Saves a record step with a name
+        """
+        Save a record step with a name.
 
         Args:
-            name (str): the name of the step
-
+            name: The name of the step.
         """
         self.record_steps.append((datetime.now(), name))
 
     @contextmanager
     def record_context(self, name: str):
-        """Record step as a context manager.
-        Starts a record_step with the given name,
-        after execution of the context it records a step with the name "__other__"
+        """
+        Record step as a context manager.
+
+        Starts a record_step with the given name, after execution it records "__other__".
 
         Args:
-            name (str): the name of the context
-
+            name: The name of the context.
         """
         try:
             self.record_step(name)
@@ -57,6 +57,13 @@ class TorchProfiler(profile, Profiler):
     """subclass of (torch.profiler) profile"""
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize TorchProfiler.
+
+        Args:
+            *args: Positional arguments passed to torch.profiler.profile.
+            **kwargs: Keyword arguments. Supports with_flops, profile_memory, activities.
+        """
         defaults = {
             "with_flops": True,
             "profile_memory": True,
@@ -80,17 +87,17 @@ class TorchProfiler(profile, Profiler):
         ]
 
     def _get_profiler_events(self) -> EventList[FunctionEvent]:
-        """Ensures the profiler has function events and returns them."""
+        """Get profiler function events."""
         assert self.profiler, "Profiling not stopped correctly"
         self.profiler._ensure_function_events()
         return self.profiler._function_events
 
     def to_pandas(self) -> pd.DataFrame:
-        """Converts profiler events to pandas dataframe
+        """
+        Convert profiler events to pandas DataFrame.
 
         Returns:
-            pd.DataFrame() containing row-wise all events (calculations like aten::mm) with metrics
-
+            DataFrame with events and metrics.
         """
         matched_events = self._get_profiler_events_by_record_step()
 
@@ -118,11 +125,11 @@ class TorchProfiler(profile, Profiler):
         return df
 
     def summary(self) -> pd.DataFrame:
-        """Generates a summary as a pandas dataframe
+        """
+        Generate summary DataFrame with summed metrics per event type.
 
         Returns:
-            pd.DataFrame() containing summed metrics for all event types (e.g. aten::mul, aten::mm)
-
+            DataFrame with summed metrics grouped by event name.
         """
         df: pd.DataFrame = self.to_pandas()
         df = df[~df["is_annotation"]]
@@ -131,11 +138,11 @@ class TorchProfiler(profile, Profiler):
         return df
 
     def totals(self) -> pd.Series:
-        """Sums all metrics for the whole profiling
+        """
+        Sum all metrics for the whole profiling.
 
         Returns:
-            pd.Series containing the total sums with keys
-
+            Series with total sums of all metrics.
         """
         df: pd.DataFrame = self.to_pandas()
         df = df[~df["is_annotation"]]
@@ -143,11 +150,14 @@ class TorchProfiler(profile, Profiler):
         return df
 
     def get_total_time(self, device: str = "CUDA") -> float:
-        """Computes the total device time from the profiler's events without converting to pandas df
+        """
+        Compute total device time from profiler events.
+
         Args:
-            device (str): the device to calculate the total time for (default = CUDA), options: CPU, CUDA
+            device: "CPU" or "CUDA".
+
         Returns:
-            float: the total device time in us
+            Total device time in microseconds.
         """
         assert device in ["CPU", "CUDA"], "device must be either CPU or CUDA"
         events = self._get_profiler_events()
@@ -162,20 +172,22 @@ class TorchProfiler(profile, Profiler):
         return total_time
 
     def get_total_flops(self) -> float:
-        """Computes the total FLOPs from the profiler's events without converting to pandas df
+        """
+        Compute total FLOPs from profiler events.
 
         Returns:
-            float: The sum of FLOPs for all events.
-
+            Total FLOP count.
         """
         events = self._get_profiler_events()
         total_flops = sum(getattr(event, "flops", 0.0) for event in events)
         return int(total_flops)
 
     def _get_profiler_events_by_record_step(self) -> dict[str, list[FunctionEvent]]:
-        """Returns the profiler events grouped by record steps
+        """
+        Group profiler events by record steps.
+
         Returns:
-            Dict[str, List[FunctionEvent]]: the profiler events grouped by record steps.
+            Dictionary mapping step names to their events.
         """
         events = self._get_profiler_events()
         matched_events = {step: [] for _, step in self.record_steps}
@@ -196,11 +208,11 @@ class TorchProfiler(profile, Profiler):
         return matched_events
 
     def get_flops_by_step(self) -> pd.DataFrame:
-        """Computes the FLOPs for each step in the record_steps list based on time_range
+        """
+        Compute FLOPs for each step in record_steps.
 
         Returns:
-            pd.DataFrame: A DataFrame with the FLOPs for each step.
-
+            DataFrame with FLOPs for each step.
         """
         matched_events = self._get_profiler_events_by_record_step()
         flops_by_step = {
@@ -212,9 +224,11 @@ class TorchProfiler(profile, Profiler):
         return df
 
     def get_time_by_step(self) -> pd.DataFrame:
-        """Computes the time for each step in the record_steps list based on time_range
+        """
+        Compute time for each step in record_steps.
+
         Returns:
-            pd.DataFrame: A DataFrame with the time is us for each step.
+            DataFrame with CPU and GPU time for each step.
         """
         matched_events = self._get_profiler_events_by_record_step()
         time_by_step = {}
@@ -237,19 +251,16 @@ class TorchProfiler(profile, Profiler):
 
 
 class NvidiaProfiler(Profiler):
-    """ "
-    Profiler for gpu energy consumption as context manager using nvidia-smi.
-    The Profiler starts a seperate process for profiling using nvidia-smi.
-    If one enters the context the parallel process gets started and it waits until the profiling got some data before continuing
-    the execution inside the context. If the context closes all data is collected and the seperate process gets killed.
+    """
+    Profiler for GPU energy consumption using nvidia-smi as context manager.
+
+    Starts a separate process for profiling. On context entry, waits for data before continuing.
+    On exit, collects data and stops the process.
 
     Args:
-        interval (int): milliseconds interval of profiler steps
-        cache_file (str or None): file path to store the profiling data in a csv file. If None the data is stored in memory
-            and collected when the profiler context exits otherwise a csv file is created and the data is written to it and read from it
-            after the context exits
-        force_cache (bool): if True the cache file will be overwritten if it already exists
-
+        interval: Query interval in milliseconds.
+        cache_file: Path to CSV for storing data. If None, uses memory.
+        force_cache: If True, overwrite existing cache file.
     """
 
     def __init__(
@@ -258,6 +269,14 @@ class NvidiaProfiler(Profiler):
         cache_file: str | None = None,
         force_cache: bool = False,
     ):
+        """
+        Initialize NvidiaProfiler.
+
+        Args:
+            interval: Query interval in milliseconds.
+            cache_file: Path to CSV file. If None, stores in memory.
+            force_cache: If True, overwrite existing cache file.
+        """
         self.current_record_step = Array("c", 1000)
         self.interval: float = interval
         self.data: list[tuple[int, datetime, float]] = []
@@ -287,6 +306,7 @@ class NvidiaProfiler(Profiler):
         super().__init__()
 
     def record_step(self, name):
+        """Record a profiling step and update shared memory."""
         super().record_step(name)
         self.current_record_step.value = name.encode("utf-8")
 
@@ -299,16 +319,16 @@ class NvidiaProfiler(Profiler):
         current_record_step,
         interval: int,
     ):
-        """Static method for the seperate profiling process. Use this method in a multiprocessing process.
-        Opens a subprocess with nvidia-smi and saves gpu_id, timestamp and power for every interval seconds and puts these values in the queue.
+        """
+        Profiling process using nvidia-smi.
 
         Args:
-            should_run (multiprocessing.Value (int)): should be 1 initially to run the subprocess, change it to 0 to stop the profiling
-            started (multiprocessing.Event): notifies the process starter that profiling runs
-            stopped (multiprocessing.Event): notifies the process starter that profiling ended
-            queue (multiprocessing.Queue): handles the shared memory, call queue.get() to the firt put in (gpu_id, timestamp, power and used memory)
-            interval (int): the interval in milliseconds the profiler should check nvidia-smi
-
+            should_run: Value to control process (1 to run, 0 to stop).
+            started: Event to notify that profiling started.
+            stopped: Event to notify that profiling ended.
+            result_handler: Handler for profiling results.
+            current_record_step: Shared memory for current step.
+            interval: Query interval in milliseconds.
         """
 
         def read_data(ln):
@@ -339,6 +359,7 @@ class NvidiaProfiler(Profiler):
         stopped.set()
 
     def __enter__(self):
+        """Start profiling process."""
         assert subprocess.getstatusoutput("nvidia-smi")[0] == 0, (
             "Could not find nvidia-smi tool"
         )
@@ -347,6 +368,7 @@ class NvidiaProfiler(Profiler):
         return self
 
     def __exit__(self, *args, **kwargs):
+        """Stop profiling process and collect data."""
         self.should_profiling_run.value = 0
         self.profiling_stopped.wait()
         self.data = self.result_handler.get_all()
@@ -355,28 +377,25 @@ class NvidiaProfiler(Profiler):
 
     @staticmethod
     def from_cache(cache_file: str) -> "NvidiaProfiler":
-        """Creates a NvidiaProfiler object from a cache file.
-        Note that only the data is loaded from the cache file, the profiler object is not
-        started and the record_steps will be empty but
-        available in the data directly.
+        """
+        Create NvidiaProfiler from cache file.
 
         Args:
-            cache_file (str): the path to the cache file
+            cache_file: Path to cache file.
 
         Returns:
-            NvidiaProfiler: the NvidiaProfiler object with the data from the cache file
-
+            NvidiaProfiler with data from cache.
         """
         prof = NvidiaProfiler(cache_file=cache_file)
         prof.data = prof.result_handler.get_all()
         return prof
 
     def to_pandas(self) -> pd.DataFrame:
-        """Generates a pandas dataframe from the profiled data
+        """
+        Generate pandas DataFrame from profiled data.
 
         Returns:
-            pandas DataFrame containing columns gpu_index, timestamp, power (in watts), memory (in MiB)
-
+            DataFrame with columns: gpu_id, timestamp, power (W), memory (MiB), record_step.
         """
         df: pd.DataFrame = pd.DataFrame(
             self.data,
@@ -386,9 +405,11 @@ class NvidiaProfiler(Profiler):
         return df
 
     def get_profiled_gpus(self) -> list[int]:
-        """Returns:
-        a list of all gpu ids which got profiled
+        """
+        Get list of all profiled GPU IDs.
 
+        Returns:
+            List of GPU IDs that were profiled.
         """
         df: pd.DataFrame = self.to_pandas()
         return df["gpu_id"].unique().tolist()
@@ -399,17 +420,16 @@ class NvidiaProfiler(Profiler):
         record_steps: list[str] | None = None,
         return_data: bool = False,
     ) -> float:
-        """Summes the power to get the total energy
+        """
+        Calculate total energy consumption.
 
         Args:
-            gpu_id (List[int]): the ids of the gpu to calculate the total energy for (default = None, the first gpu id is used)
-            record_steps (List[str]): records_steps to include in the summation (default = None, all record_steps will be included)
-            return_data (bool): whether to return the raw data of the selection (default = False)
+            gpu_ids: GPU IDs to calculate energy for. If None, uses first GPU.
+            record_steps: Steps to include. If None, includes all steps.
+            return_data: If True, returns list of energy per step.
 
         Returns:
-            the total energy recorded in watt seconds
-            if return_data is True the list of measurements for each record_step in watt seconds is returned
-
+            Total energy in watt-seconds, or list per step if return_data=True.
         """
         if not self.data:
             return 0.0
@@ -426,11 +446,11 @@ class NvidiaProfiler(Profiler):
         return df["energy_interval"].sum()
 
     def get_total_time(self) -> float:
-        """Returns the total profiling time in seconds
+        """
+        Get total profiling time.
 
         Returns:
-            time difference of first and last profiling sample in seconds
-
+            Time difference in seconds between first and last sample.
         """
         if not self.data:
             return 0.0
@@ -438,14 +458,14 @@ class NvidiaProfiler(Profiler):
         return (df["timestamp"].max() - df["timestamp"].min()).total_seconds()
 
     def get_avg_memory_usage(self, gpu_id: int | None = None) -> float:
-        """Get average memory usage by gpu_id
+        """
+        Get average memory usage by GPU ID.
 
         Args:
-            gpu_id (int): the id of the gpu to calculate the avg memeory usage for (default = None, the first gpu id is used)
+            gpu_id: GPU ID to calculate for. If None, uses first GPU.
 
         Returns:
-            the avgerage memory usage in MiB
-
+            Average memory usage in MiB.
         """
         if not self.data:
             return 0.0
@@ -455,7 +475,12 @@ class NvidiaProfiler(Profiler):
         return df["memory"].mean()
 
     def get_time_series_plot(self) -> go.Figure:
-        """Creates a plotly figure with the recorded time series data"""
+        """
+        Create plotly figure with time series data.
+
+        Returns:
+            Plotly figure with power and memory usage over time.
+        """
         if not self.data:
             return None
         df: pd.DataFrame = self.to_pandas()

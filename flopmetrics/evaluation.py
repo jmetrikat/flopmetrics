@@ -25,9 +25,18 @@ from flopmetrics.model import load_model
 
 
 class ModelEvaluator:
-    """Abstract class for the evaluation of a model"""
+    """Abstract class for model evaluation."""
 
     def __init__(self, model, tokenizer, verbose, device=None):
+        """
+        Initialize evaluator.
+
+        Args:
+            model: Model to evaluate.
+            tokenizer: Tokenizer for the model.
+            verbose: Verbosity flag.
+            device: Device to run on. If None, uses CUDA if available.
+        """
         self.device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = model.to(self.device)
         self.tokenizer = tokenizer
@@ -35,20 +44,12 @@ class ModelEvaluator:
 
     @abstractmethod
     def evaluate(self, execute: List[str] = None) -> Dict[str, float]:
-        """abstract evaluate method
-        Args:
-            execute (List[str], optional): list of execution types to evaluate. Defaults to None.
-        Returns:
-            Dict[str, Union[float, str]]: dictionary with the metrics
-        """
+        """Abstract evaluate method."""
         return {}
 
 
 class ModelPerformanceEvaluator(ModelEvaluator):
-    """
-    Evaluates a model's performance on tasks supported by lm_eval_harness (e.g. GLUE)
-    and returns a dictionary of metrics.
-    """
+    """Evaluates model performance on tasks using lm_eval_harness."""
 
     def __init__(
         self,
@@ -60,11 +61,11 @@ class ModelPerformanceEvaluator(ModelEvaluator):
     ):
         """
         Args:
-            model (torch.nn.Module): The model to evaluate (HuggingFace compatible).
-            tokenizer (transformers.PreTrainedTokenizer): The tokenizer for the model.
-            few_shot (int, optional): Number of few-shot examples to use in prompting.
-            verbose (bool, optional): Verbosity of the evaluation.
-            device (torch.device, optional): Device to run the evaluation on.
+            model: The model to evaluate (HuggingFace compatible).
+            tokenizer: The tokenizer for the model.
+            few_shot: Number of few-shot examples to use in prompting.
+            verbose: Verbosity of the evaluation.
+            device: Device to run the evaluation on.
         """
         super().__init__(model, tokenizer, verbose, device)
         self.eval_model = HFLM(pretrained=model, tokenizer=tokenizer, parralelize=True)
@@ -79,14 +80,13 @@ class ModelPerformanceEvaluator(ModelEvaluator):
 
     def evaluate(self, execute: List[str] = None) -> Dict[str, Union[float, str]]:
         """
-        Runs the lm_eval_harness to compute performance metrics on the specified tasks.
-        Returns a dictionary containing metrics per task.
+        Evaluate model performance on specified tasks.
 
         Args:
-            execute (List[str], optional): List of GLUE tasks or any tasks recognized
-                by lm_eval_harness. Must be the harness IDs, for example
-                ["sst2", "mrpc", ...].
-                If None, defaults to a subset of GLUE tasks.
+            execute: List of task IDs. If None, defaults to a subset of GLUE tasks.
+
+        Returns:
+            Dictionary of metrics per task.
         """
 
         if execute is None:
@@ -140,7 +140,7 @@ class ModelPerformanceEvaluator(ModelEvaluator):
 
 @dataclass
 class EnergyEvaluationArguments:
-    """holds evaluator arguments"""
+    """Arguments for energy evaluation."""
 
     num_samples: int = 110
     input_length: int = 100
@@ -186,6 +186,17 @@ class ModelEnergyEvaluator(ModelEvaluator):
         verbose: bool = False,
         device=None,
     ):
+        """
+        Initialize energy evaluator.
+
+        Args:
+            model: Model to evaluate.
+            tokenizer: Tokenizer for the model.
+            args: Evaluation arguments.
+            dataset: Dataset to use. If None, generates random dataset.
+            verbose: Verbosity flag.
+            device: Device to run on. If None, uses CUDA if available.
+        """
         super().__init__(model, tokenizer, verbose, device)
         self.tokenizer_vocab: List = list(self.tokenizer.vocab.keys())[:3]
         self.args: EnergyEvaluationArguments = args
@@ -204,8 +215,12 @@ class ModelEnergyEvaluator(ModelEvaluator):
         }
 
     def _generate_random_dataset(self) -> Dataset:
-        """generates a random dataset with input_length and num_samples from EnergyEvaluationArguments"""
+        """
+        Generate a random dataset.
 
+        Returns:
+            Generated dataset.
+        """
         input_ids = []
         for _ in tqdm(
             range(self.args.num_samples * self.args.batch_size),
@@ -231,13 +246,7 @@ class ModelEnergyEvaluator(ModelEvaluator):
         return dataset
 
     def _ensure_data(self):
-        """loads the dataset and creates the data loader
-        Raises:
-            AssertionError: if the dataset does not have the required columns
-        Sets:
-            self.data_loader: the data loader for the dataset
-            self.data_batches: the batches of the data loader
-        """
+        """Load dataset and create data loader."""
         if self.dataset is None:
             self.dataset = self._generate_random_dataset()
         else:
@@ -255,32 +264,41 @@ class ModelEnergyEvaluator(ModelEvaluator):
         self.data_batches = lambda desc: tqdm(self.data_loader, desc=desc, disable=not self.verbose)
 
     def _batch_to_device(self, batch) -> Dict[torch.Tensor, torch.Tensor]:
-        """moves the batch to the device
+        """
+        Move batch tensors to device.
+
         Args:
-            batch (dict): the batch to move to the device
+            batch: Batch to move.
+
         Returns:
-            dict: the batch moved to the device
+            Batch with tensors moved to device.
         """
         return {k: v.to(self.device) for k, v in batch.items()}
 
     def _get_exec_fn_name(self, exec_fn: Callable[[dict, Profiler], None]) -> str:
-        """returns the name of the function
+        """
+        Get human-readable name from function.
+
         Args:
-            exec_fn (Callable[[dict, Profiler], None]): the function to get the name of
+            exec_fn: Function to get name from.
+
         Returns:
-            str: the name of the function
+            Human-readable function name.
         """
         return exec_fn.__name__.replace("_", " ")
 
     def evaluate(
         self, execute: List[str] = None, metrics: List[str] = None
     ) -> Dict[str, Union[float, str]]:
-        """evaluates the model forward and backward passes
+        """
+        Evaluate model forward and backward passes.
+
         Args:
-            execute (List[str]): the list of passes to evaluate (default: all available], options: listed in self.execute_map.keys())
-            metrics (List[str]): the list of metrics to evaluate (default: all available), options: ["joules", "flops", "cpu_time", "gpu_time"]
+            execute: List of passes to evaluate. Options: forward, backward, forward_backward, generate.
+            metrics: List of metrics to evaluate. Options: joules, flops, cpu_time, gpu_time.
+
         Returns:
-            dict: the evaluation results
+            Dictionary of evaluation results.
         """
         if execute is None:
             execute = self.execute_map.keys()
@@ -330,11 +348,14 @@ class ModelEnergyEvaluator(ModelEvaluator):
         return eval_results
 
     def _interest_flops(self, exec_fn: Callable[[dict, Profiler], None]) -> int:
-        """returns the flops of the interest step
+        """
+        Get FLOPs for interest step.
+
         Args:
-            exec_fn (Callable[[dict, Profiler], None]): the function to execute the model pass
+            exec_fn: Function to execute model pass.
+
         Returns:
-            int: the flops of the interest step
+            FLOPs for interest step.
         """
         if self.verbose:
             print(f"Evaluating:{self._get_exec_fn_name(exec_fn)} flops")
@@ -342,11 +363,14 @@ class ModelEnergyEvaluator(ModelEvaluator):
         return prof.get_flops_by_step().loc["interest", "flops"]
 
     def _interest_energy(self, exec_fn: Callable[[dict, Profiler], None]) -> List[float]:
-        """returns the energy of the interest step
+        """
+        Get energy consumption for interest step.
+
         Args:
-            exec_fn (Callable[[dict, Profiler], None]): the function to execute the model pass
+            exec_fn: Function to execute model pass.
+
         Returns:
-            List[float]: the energy measurements of the interest step
+            Energy measurements for interest step.
         """
         prof = self._nvidia_profile_batched(
             exec_fn, f"Evaluating:{self._get_exec_fn_name(exec_fn)} energy"
@@ -356,11 +380,14 @@ class ModelEnergyEvaluator(ModelEvaluator):
     def _interest_time(
         self, exec_fn: Callable[[dict, Profiler], None]
     ) -> Tuple[List[float], List[float]]:
-        """returns the time of the interest step
+        """
+        Get CPU and GPU time for interest step.
+
         Args:
-            exec_fn (Callable[[dict, Profiler], None]): the function to execute the model pass
+            exec_fn: Function to execute model pass.
+
         Returns:
-            Tuple[List[float], List[float]]: the cpu and gpu time measurements of the interest step
+            Tuple of (CPU time measurements, GPU time measurements).
         """
         cpu_time_measurements = []
         gpu_time_measurements = []
@@ -374,11 +401,14 @@ class ModelEnergyEvaluator(ModelEvaluator):
         return cpu_time_measurements, gpu_time_measurements
 
     def nvidia_plot(self, exec_idetifier: str):
-        """plots the energy and flops of the model passes
+        """
+        Plot energy consumption time series for a pass.
+
         Args:
-            exec_idetifier (str): the identifier of the pass to plot
+            exec_idetifier: Identifier of the pass to plot.
+
         Returns:
-            Plot: the plot of the energy and flops
+            Plotly figure with energy consumption time series.
         """
         self._ensure_data()
         assert exec_idetifier in self.execute_map, f"Invalid execute value: {exec_idetifier}"
@@ -386,11 +416,12 @@ class ModelEnergyEvaluator(ModelEvaluator):
         return prof.get_time_series_plot()
 
     def _model_forward(self, batch: dict, prof: Profiler):
-        """executes the model forward pass
-        Sets the prof record step to "interest" for the forward pass as this is the step we are interested in
+        """
+        Execute forward pass with profiling.
+
         Args:
-            batch (dict): the batch to execute the forward pass
-            prof (Profiler): the profiler to record the energy and flops
+            batch: Batch to execute forward pass on.
+            prof: Profiler to record energy and FLOPs.
         """
         prof.record_step("other")
         batch = self._batch_to_device(batch)
@@ -400,11 +431,12 @@ class ModelEnergyEvaluator(ModelEvaluator):
         prof.record_step("other")
 
     def _model_backward(self, batch: dict, prof: Profiler):
-        """executes the model backward pass
-        Sets the prof record step to "interest" for the backward pass as this is the step we are interested in
+        """
+        Execute backward pass with profiling.
+
         Args:
-            batch (dict): the batch to execute the backward pass
-            prof (Profiler): the profiler to record the energy and flops
+            batch: Batch to execute backward pass on.
+            prof: Profiler to record energy and FLOPs.
         """
         prof.record_step("other")
         batch = self._batch_to_device(batch)
@@ -417,11 +449,12 @@ class ModelEnergyEvaluator(ModelEvaluator):
         prof.record_step("other")
 
     def _model_forward_backward(self, batch: dict, prof: Profiler):
-        """executes the model forward and backward pass
-        Sets the prof record step to "interest" for the forward and backward pass as this is the step we are interested in
+        """
+        Execute forward and backward passes together with profiling.
+
         Args:
-            batch (dict): the batch to execute the backward pass
-            prof (Profiler): the profiler to record the energy and flops
+            batch: Batch to execute passes on.
+            prof: Profiler to record energy and FLOPs.
         """
         prof.record_step("other")
         batch = self._batch_to_device(batch)
@@ -433,11 +466,12 @@ class ModelEnergyEvaluator(ModelEvaluator):
         prof.record_step("other")
 
     def _model_generate(self, batch: dict, prof: Profiler):
-        """executes the model generate pass
-        Sets the prof record step to "interest" for the generate pass as this is the step we are interested in
+        """
+        Execute generation pass with profiling.
+
         Args:
-            batch (dict): the batch to execute the generate pass
-            prof (Profiler): the profiler to record the energy and flops
+            batch: Batch to execute generation on.
+            prof: Profiler to record energy and FLOPs.
         """
         prof.record_step("other")
         batch = self._batch_to_device(batch)
@@ -453,12 +487,15 @@ class ModelEnergyEvaluator(ModelEvaluator):
     def _nvidia_profile_batched(
         self, exec_fn: Callable[[dict, Profiler], None], verbose_desc: str
     ) -> NvidiaProfiler:
-        """profiles the model with NvidiaProfiler
+        """
+        Profile model with NvidiaProfiler on batched data.
+
         Args:
-            exec_fn (Callable[[dict, Profiler], None]): the function to execute the model pass
-            verbose_desc (str): the description for the tqdm progress bar
+            exec_fn: Function to execute model pass.
+            verbose_desc: Description for progress bar.
+
         Returns:
-            Profiler: NvidiaProfiler with energy measurements
+            NvidiaProfiler with energy measurements.
         """
         with NvidiaProfiler(self.args.nvidia_query_interval) as prof:
             for batch in self.data_batches(verbose_desc):
@@ -466,11 +503,14 @@ class ModelEnergyEvaluator(ModelEvaluator):
         return prof
 
     def _torch_profile_single(self, exec_fn: Callable[[dict, Profiler], None]) -> TorchProfiler:
-        """profiles the model with TorchProfiler
+        """
+        Profile model with TorchProfiler on a single batch.
+
         Args:
-            exec_fn (Callable[[dict, Profiler], None]): the function to execute the model pass
+            exec_fn: Function to execute model pass.
+
         Returns:
-            Profiler: TorchProfiler flops measurements
+            TorchProfiler with FLOPs measurements.
         """
         single_batch = next(iter(self.data_loader))
         single_batch = self._batch_to_device(single_batch)
@@ -479,11 +519,14 @@ class ModelEnergyEvaluator(ModelEvaluator):
         return prof
 
     def _nvidia_profile_single(self, exec_fn: Callable[[dict, Profiler], None]) -> NvidiaProfiler:
-        """profiles the model with NvidiaProfiler
+        """
+        Profile model with NvidiaProfiler on a single batch.
+
         Args:
-            exec_fn (Callable[[dict, Profiler], None]): the function to execute the model pass
+            exec_fn: Function to execute model pass.
+
         Returns:
-            Profiler: NvidiaProfiler with energy measurements
+            NvidiaProfiler with energy measurements.
         """
         single_batch = next(iter(self.data_loader))
         single_batch = self._batch_to_device(single_batch)
@@ -493,12 +536,32 @@ class ModelEnergyEvaluator(ModelEvaluator):
 
 
 def performance_eval(model, tokenizer):
+    """
+    Evaluate model performance on tasks.
+
+    Args:
+        model: Model to evaluate.
+        tokenizer: Tokenizer for the model.
+
+    Returns:
+        Dictionary of performance metrics.
+    """
     performance_evaluator = ModelPerformanceEvaluator(model, tokenizer, verbose=True)
     performance_metrics = performance_evaluator.evaluate()
     return performance_metrics
 
 
 def energy_eval(model_name: str, tokenizer_name: str = None):
+    """
+    Evaluate model energy consumption.
+
+    Args:
+        model_name: Name of the model to load.
+        tokenizer_name: Name of the tokenizer to load. If None, uses model_name.
+
+    Returns:
+        Dictionary of energy metrics.
+    """
     print("Evaluating energy...")
     model, tokenizer = load_model(model_name, tokenizer_name)
     energy_evaluator = ModelEnergyEvaluator(
@@ -517,11 +580,27 @@ def energy_eval(model_name: str, tokenizer_name: str = None):
 
 
 def energy_eval_process_wrapper(result_queue: Queue, *args, **kwargs):
+    """
+    Wrapper function for energy evaluation in a separate process.
+
+    Args:
+        result_queue: Queue to put results in.
+        *args: Positional arguments for energy_eval.
+        **kwargs: Keyword arguments for energy_eval.
+    """
     energy_metrics = energy_eval(*args, **kwargs)
     result_queue.put(energy_metrics)
 
 
 def energy_eval_wrapped(output_dir: str, model_name: str, tokenizer_name: str = None):
+    """
+    Evaluate model energy consumption and save results to file.
+
+    Args:
+        output_dir: Directory to save results.
+        model_name: Name of the model to load.
+        tokenizer_name: Name of the tokenizer to load. If None, uses model_name.
+    """
     os.makedirs(output_dir, exist_ok=True)
 
     energy_metrics = start_separate_process(
