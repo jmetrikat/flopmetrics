@@ -1,7 +1,6 @@
 import json
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import glob
 import os
 
@@ -112,13 +111,13 @@ def analyze_unified_results():
 
     global_best = df.iloc[0]
     mode = "Forward Only" if global_best['is_forward_only'] else "Full Training"
-    print(f"\n🏆 GLOBAL BEST:")
+    print("\n🏆 GLOBAL BEST:")
     print(f"{global_best['gpu_config'].upper()}_{global_best['precision'].upper()} {global_best['config_name']} - {global_best['total_tflops_per_joule']:.1f} TFLOPs/J ({mode})")
 
     create_unified_plots(df)
 
     df.to_csv("results_optimized/gpu_efficiency_comparison.csv", index=False)
-    print(f"\nResults saved to: results_optimized/gpu_efficiency_comparison.csv")
+    print("\nResults saved to: results_optimized/gpu_efficiency_comparison.csv")
 
     return df
 

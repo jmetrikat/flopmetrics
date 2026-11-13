@@ -4,3 +4,6 @@
 .env
 out/**
 **/__pycache__/**
+.venv/
+.ruff_cache/
+dist/

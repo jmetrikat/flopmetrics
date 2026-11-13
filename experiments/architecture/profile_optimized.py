@@ -1,6 +1,5 @@
 import json
 import torch
-import torch.nn as nn
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from flopmetrics.evaluation import ModelEnergyEvaluator, EnergyEvaluationArguments
 import time
