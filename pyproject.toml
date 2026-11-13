@@ -9,7 +9,7 @@ readme = "README.md"
 python = "^3.12"
 torch = "^2.6.0"
 transformers = {extras = ["torch"], version = "^4.49.0"}
-datasets = "^3.3.2"
+datasets = ">=3.3.2,<6.0.0"
 python-dotenv = "^1.0.1"
 evaluate = "^0.4.3"
 scikit-learn = "^1.6.1"
