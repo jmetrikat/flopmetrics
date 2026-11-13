@@ -27,29 +27,6 @@ $(poetry env activate)
 - See [`experiments/metrics/README.md`](experiments/metrics/README.md) for metrics workflows and notebooks.
 - See [`experiments/architecture/README.md`](experiments/architecture/README.md) for energy profiling instructions.
 
-## Checks
-
-GitHub Actions runs on every pull request (including dependency updates), pushes to
-`main`, and manual dispatches. It validates the Poetry lockfile, lints Python sources
-with Ruff, checks syntax, builds the wheel and source distribution, and runs CPU
-smoke tests against the locked runtime dependencies on Python 3.12.
-
-Run the same checks locally after `./install.sh`:
-
-```bash
-poetry check --lock
-poetry run ruff check .
-poetry run python -m compileall -q flopmetrics experiments tests
-poetry build
-HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 poetry run python -m unittest discover -s tests -v
-```
-
-The smoke tests cover library imports, a linear layer's forward/backward passes,
-PyTorch FLOP profiling, and a tiny Llama model with LoRA adapters. They use no model
-downloads or GPUs; CUDA, NVIDIA energy measurements, and NCU experiments still need
-validation on suitable hardware. Linting covers Python files, excluding the external
-submodule and notebooks.
-
 ## Reproducibility
 
 1. Connect to the appropriate system:
