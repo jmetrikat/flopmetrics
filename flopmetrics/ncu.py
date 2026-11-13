@@ -149,7 +149,7 @@ def flops_comparison(function: Callable, args: dict, verbose: bool = False):
     ncu = NCUProfiler()
     if verbose:
         print(f"Profiling {function.__name__} with arguments {args}")
-    out = ncu.profile_function(function, args)
+    ncu.profile_function(function, args)
     actual = ncu.get_total_flops()
     with TorchProfiler() as prof:
         function(**args)

@@ -24,6 +24,12 @@ pynvml = "^11.5.1"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "^6.29.5"
+ruff = "^0.14.5"
+
+[tool.ruff]
+target-version = "py312"
+include = ["*.py", "*.pyi"]
+extend-exclude = ["external"]
 
 [build-system]
 requires = ["poetry-core"]
