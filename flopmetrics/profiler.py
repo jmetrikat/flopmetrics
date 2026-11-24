@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import torch
 from torch.autograd.profiler_util import EventList, FunctionEvent
 from torch.profiler import ProfilerActivity, profile
 
@@ -33,6 +34,8 @@ class Profiler:
         Args:
             name: The name of the step.
         """
+        if torch.cuda.is_initialized():
+            torch.cuda.synchronize()  # CUDA launches are async: wait for the previous step's kernels
         self.record_steps.append((datetime.now(), name))
 
     @contextmanager
