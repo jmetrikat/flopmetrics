@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import pynvml
 import torch
 from torch.autograd.profiler_util import EventList, FunctionEvent
 from torch.profiler import ProfilerActivity, profile
@@ -255,10 +256,10 @@ class TorchProfiler(profile, Profiler):
 
 class NvidiaProfiler(Profiler):
     """
-    Profiler for GPU energy consumption using nvidia-smi as context manager.
+    Profiler for GPU energy consumption as context manager.
 
-    Starts a separate process for profiling. On context entry, waits for data before continuing.
-    On exit, collects data and stops the process.
+    Energy per step comes from NVML's cumulative energy counters, read at each step
+    boundary. A separate nvidia-smi process samples power and memory for plots.
 
     Args:
         interval: Query interval in milliseconds.
@@ -280,6 +281,8 @@ class NvidiaProfiler(Profiler):
             cache_file: Path to CSV file. If None, stores in memory.
             force_cache: If True, overwrite existing cache file.
         """
+        self._nvml_handles = []
+        self.energy_marks: list[tuple[str, list[int]]] = []  # (step, mJ per GPU)
         self.current_record_step = Array("c", 1000)
         self.interval: float = interval
         self.data: list[tuple[int, datetime, float]] = []
@@ -309,8 +312,11 @@ class NvidiaProfiler(Profiler):
         super().__init__()
 
     def record_step(self, name):
-        """Record a profiling step and update shared memory."""
+        """Record a profiling step, read the energy counters, and update shared memory."""
         super().record_step(name)
+        if self._nvml_handles:
+            energy = [pynvml.nvmlDeviceGetTotalEnergyConsumption(h) for h in self._nvml_handles]
+            self.energy_marks.append((name, energy))
         self.current_record_step.value = name.encode("utf-8")
 
     @staticmethod
@@ -368,10 +374,17 @@ class NvidiaProfiler(Profiler):
         )
         self.process.start()
         self.profiling_started.wait()
+        pynvml.nvmlInit()
+        self._nvml_handles = [
+            pynvml.nvmlDeviceGetHandleByIndex(i) for i in range(pynvml.nvmlDeviceGetCount())
+        ]
+        self.record_step("__enter__")
         return self
 
     def __exit__(self, *args, **kwargs):
         """Stop profiling process and collect data."""
+        self.record_step("__exit__")
+        pynvml.nvmlShutdown()
         self.should_profiling_run.value = 0
         self.profiling_stopped.wait()
         self.data = self.result_handler.get_all()
@@ -426,27 +439,24 @@ class NvidiaProfiler(Profiler):
         """
         Calculate total energy consumption.
 
+        Every record step opens a window that ends at the next one; its energy is the
+        difference of the GPU energy counters read at the two boundaries.
+
         Args:
             gpu_ids: GPU IDs to calculate energy for. If None, uses first GPU.
             record_steps: Steps to include. If None, includes all steps.
-            return_data: If True, returns list of energy per step.
+            return_data: If True, returns list of energy per window.
 
         Returns:
-            Total energy in watt-seconds, or list per step if return_data=True.
+            Total energy in joules, or list per window if return_data=True.
         """
-        if not self.data:
-            return 0.0
-        df: pd.DataFrame = self.to_pandas()
-        df["record_step_id"] = df["record_step"].ne(df["record_step"].shift()).cumsum()
-        gpu_ids = gpu_ids or [df["gpu_id"].unique()[0]]
-        df = df[df["gpu_id"].isin(gpu_ids)]
-        df["time_interval"] = df["timestamp"].diff().dt.total_seconds().fillna(0)
-        df["energy_interval"] = df["power"] * df["time_interval"]
-        record_steps = record_steps or list(df["record_step"].unique())
-        df = df[df["record_step"].isin(record_steps)]
-        if return_data:
-            return list(df.groupby("record_step_id")["energy_interval"].sum())
-        return df["energy_interval"].sum()
+        gpu_ids = gpu_ids or [0]
+        energies = [
+            sum(end[i] - start[i] for i in gpu_ids) / 1e3
+            for (name, start), (_, end) in zip(self.energy_marks, self.energy_marks[1:])
+            if record_steps is None or name in record_steps
+        ]
+        return energies if return_data else sum(energies)
 
     def get_total_time(self) -> float:
         """
