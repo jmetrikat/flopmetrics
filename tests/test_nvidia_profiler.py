@@ -8,9 +8,9 @@ class EnergyCounterTest(unittest.TestCase):
     def test_window_energy_is_counter_difference(self):
         prof = profiler.NvidiaProfiler()
         prof._nvml_handles = ["gpu0"]  # set up by __enter__
-        readings = iter([0, 1_000, 3_000, 3_500, 6_500])  # mJ
+        readings_mj = [0, 1_000, 3_000, 3_500, 6_500]
         with mock.patch.object(
-            profiler.pynvml, "nvmlDeviceGetTotalEnergyConsumption", side_effect=lambda h: next(readings)
+            profiler.pynvml, "nvmlDeviceGetTotalEnergyConsumption", side_effect=readings_mj
         ):
             for step in ["other", "interest", "other", "interest", "other"]:
                 prof.record_step(step)

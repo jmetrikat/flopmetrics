@@ -256,13 +256,13 @@ class TorchProfiler(profile, Profiler):
 
 class NvidiaProfiler(Profiler):
     """
-    Profiler for GPU energy consumption as context manager.
+    Context manager that measures GPU energy per record step.
 
-    Energy per step comes from NVML's cumulative energy counters, read at each step
-    boundary. A separate nvidia-smi process samples power and memory for plots.
+    Energy comes from NVML's cumulative energy counters, read at every step boundary.
+    A separate nvidia-smi process samples power and memory for plots.
 
     Args:
-        interval: Query interval in milliseconds.
+        interval: nvidia-smi query interval in milliseconds.
         cache_file: Path to CSV for storing data. If None, uses memory.
         force_cache: If True, overwrite existing cache file.
     """
@@ -384,6 +384,7 @@ class NvidiaProfiler(Profiler):
     def __exit__(self, *args, **kwargs):
         """Stop profiling process and collect data."""
         self.record_step("__exit__")
+        self._nvml_handles = []
         pynvml.nvmlShutdown()
         self.should_profiling_run.value = 0
         self.profiling_stopped.wait()
@@ -439,8 +440,8 @@ class NvidiaProfiler(Profiler):
         """
         Calculate total energy consumption.
 
-        Every record step opens a window that ends at the next one; its energy is the
-        difference of the GPU energy counters read at the two boundaries.
+        Each record step opens a window that ends at the next step; its energy is the
+        difference between the counter readings at the two steps.
 
         Args:
             gpu_ids: GPU IDs to calculate energy for. If None, uses first GPU.
