@@ -34,7 +34,7 @@ Outputs are written under `experiments/architecture/results_optimized/`:
    After you have run profiling on all GPUs/precisions and copied the `*_all_configs_results.jsonl` files into `results_optimized/`, run:
 
 ```bash
-python analyze_optimized.py
+python process_optimized.py
 ```
 
 This will:
