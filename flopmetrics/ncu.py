@@ -219,7 +219,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "module",
-        help="module to import, should be a module string like 'lora_bp.ncu.atoms'",
+        help="module to import, should be a module string like 'flopmetrics.network'",
     )
     parser.add_argument(
         "function", help="function to run, should be a name of a function in the module"
