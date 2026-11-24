@@ -47,3 +47,4 @@ This will:
 
 - All efficiencies in analysis are reported as TFLOPs/J
 - Error bars use SEM-based propagation from measured energy/time SEM
+- Energy and time results recorded before step boundaries synchronized the GPU are misattributed and need re-measuring; FLOP counts are unaffected.
